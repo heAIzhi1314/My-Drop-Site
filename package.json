@@ -1,0 +1,17 @@
+{
+  "name": "ai-chat-center",
+  "version": "1.0.0",
+  "description": "智能体对话中心 - AI Chat Center",
+  "main": "ffffgghcse.html",
+  "scripts": {
+    "start": "python -m http.server 8000",
+    "deploy": "gh-pages -d .",
+    "build": "echo 'No build process needed for static site'"
+  },
+  "keywords": ["ai", "chat", "web", "static"],
+  "author": "Your Name",
+  "license": "MIT",
+  "devDependencies": {
+    "gh-pages": "^6.1.0"
+  }
+}

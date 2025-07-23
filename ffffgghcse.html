@@ -1,0 +1,3771 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>智能体对话中心</title>
+  <!-- 引入外部资源 -->
+  <!-- 注意：Tailwind CSS CDN 仅用于开发和原型设计，生产环境请使用 PostCSS 插件或 Tailwind CLI -->
+  <!-- 详见：https://tailwindcss.com/docs/installation -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css" rel="stylesheet">
+  <!-- Markdown渲染库 - 使用备用CDN -->
+  <script src="https://unpkg.com/marked@9.1.6/marked.min.js" onerror="this.onerror=null;this.src='https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js'"></script>
+  <script src="https://unpkg.com/dompurify@3.0.5/dist/purify.min.js" onerror="this.onerror=null;this.src='https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.5/purify.min.js'"></script>
+  
+  <!-- 配置Tailwind -->
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: '#4F46E5', // 主色调：靛蓝色
+            secondary: '#10B981', // 辅助色：绿色
+            neutral: {
+              100: '#F3F4F6',
+              200: '#E5E7EB',
+              700: '#374151',
+              800: '#1F2937',
+              900: '#111827'
+            }
+          },
+          fontFamily: {
+            inter: ['Inter', 'system-ui', 'sans-serif'],
+          },
+        },
+      }
+    }
+  </script>
+  
+  <style type="text/tailwindcss">
+    @layer utilities {
+      .content-auto {
+        content-visibility: auto;
+      }
+      .scrollbar-hide {
+        scrollbar-width: none;
+        -ms-overflow-style: none;
+      }
+      .scrollbar-hide::-webkit-scrollbar {
+        display: none;
+      }
+      #messageInput::-webkit-scrollbar {
+        display: none;
+      }
+      .settings-scrollbar-hide::-webkit-scrollbar {
+        display: none;
+      }
+      select option {
+        border-radius: 8px;
+        margin: 2px;
+        padding: 8px;
+      }
+      select optgroup {
+        border-radius: 8px;
+        margin: 2px;
+      }
+      .animate-float {
+        animation: float 6s ease-in-out infinite;
+      }
+      .animate-fade-in {
+        animation: fadeIn 0.5s ease-out;
+      }
+      .animate-slide-up {
+        animation: slideUp 0.3s ease-out;
+      }
+      .animate-pulse-slow {
+        animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+      }
+      .animate-bounce-subtle {
+        animation: bounceSubtle 1s ease-in-out infinite;
+      }
+      .typing-indicator {
+        animation: typing 1.4s infinite;
+      }
+      @keyframes float {
+        0% { transform: translateY(0px); }
+        50% { transform: translateY(-10px); }
+        100% { transform: translateY(0px); }
+      }
+      @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      @keyframes slideUp {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      @keyframes bounceSubtle {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-3px); }
+      }
+      @keyframes typing {
+        0%, 60%, 100% { transform: translateY(0); }
+        30% { transform: translateY(-10px); }
+      }
+      .glass-effect {
+        backdrop-filter: blur(5px);
+        background: transparent;
+      }
+      .gradient-border {
+        background: linear-gradient(45deg, #4F46E5, #10B981);
+        padding: 2px;
+        border-radius: 12px;
+      }
+      .gradient-border > div {
+        background: white;
+        border-radius: 10px;
+      }
+      /* Markdown样式 */
+      .markdown-content h1, .markdown-content h2, .markdown-content h3, .markdown-content h4, .markdown-content h5, .markdown-content h6 {
+        font-weight: bold;
+        margin: 1em 0 0.5em 0;
+        line-height: 1.2;
+      }
+      .markdown-content h1 { font-size: 1.5em; }
+      .markdown-content h2 { font-size: 1.3em; }
+      .markdown-content h3 { font-size: 1.2em; }
+      .markdown-content h4 { font-size: 1.1em; }
+      .markdown-content p {
+        margin: 0.5em 0;
+        line-height: 1.6;
+      }
+      .markdown-content ul, .markdown-content ol {
+        margin: 0.5em 0;
+        padding-left: 1.5em;
+      }
+      .markdown-content li {
+        margin: 0.25em 0;
+      }
+      .markdown-content blockquote {
+        border-left: 4px solid #4F46E5;
+        padding-left: 1em;
+        margin: 1em 0;
+        background: #f8fafc;
+        border-radius: 0 8px 8px 0;
+      }
+      .markdown-content code {
+        background: #f1f5f9;
+        padding: 0.2em 0.4em;
+        border-radius: 4px;
+        font-family: 'Courier New', monospace;
+        font-size: 0.9em;
+      }
+      .markdown-content pre {
+        background: #1e293b;
+        color: #e2e8f0;
+        padding: 1em;
+        border-radius: 0 0 8px 8px;
+        overflow-x: auto;
+        margin: 0;
+      }
+      .markdown-content pre code {
+        background: none;
+        padding: 0;
+        color: inherit;
+      }
+      
+      /* 代码块容器样式 */
+      .code-block-container {
+        margin: 1em 0;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        overflow: hidden;
+        background: #fff;
+        max-width: 100%;
+      }
+      
+      .code-block-container pre {
+        margin: 0;
+        padding: 1em;
+        background: #1f2937;
+        color: #f9fafb;
+        font-family: 'Courier New', Consolas, Monaco, monospace;
+        font-size: 0.875em;
+        line-height: 1.5;
+        overflow-x: auto;
+        max-width: 100%;
+        white-space: pre-wrap;
+        word-wrap: break-word;
+      }
+      
+      .code-block-container code {
+        background: transparent;
+        padding: 0;
+        border-radius: 0;
+        color: inherit;
+        white-space: pre-wrap;
+        word-wrap: break-word;
+        display: block;
+      }
+      
+      .code-block-header {
+        background: #f8fafc;
+        border-bottom: 1px solid #e2e8f0;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      }
+      
+      .code-language {
+        font-weight: 500;
+        color: #374151;
+        text-transform: uppercase;
+        font-size: 0.75rem;
+        letter-spacing: 0.05em;
+      }
+      
+      .copy-code-btn {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        border: none;
+        cursor: pointer;
+        font-weight: 500;
+      }
+      
+      .copy-code-btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      }
+      .markdown-content table, .markdown-content .markdown-table {
+        border-collapse: collapse;
+        width: 100%;
+        margin: 1em 0;
+        border-radius: 8px;
+        overflow: hidden;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+      }
+      .markdown-content th, .markdown-content td {
+        border: 1px solid #e2e8f0;
+        padding: 12px 16px;
+        text-align: left;
+        vertical-align: top;
+      }
+      .markdown-content th {
+        background: #f8fafc;
+        font-weight: 600;
+        color: #374151;
+      }
+      .markdown-content tr:nth-child(even) {
+        background: #f9fafb;
+      }
+      .markdown-content tr:hover {
+        background: #f3f4f6;
+      }
+      .markdown-content hr {
+        border: none;
+        height: 2px;
+        background: linear-gradient(90deg, transparent, #e5e7eb, transparent);
+        margin: 2em 0;
+      }
+      .markdown-content strong {
+        font-weight: 700;
+        color: #1f2937;
+      }
+      .markdown-content em {
+        font-style: italic;
+        color: #4b5563;
+      }
+      .markdown-content u {
+        text-decoration: underline;
+        text-decoration-color: #6366f1;
+      }
+      .markdown-content s, .markdown-content del, .markdown-content strike {
+         text-decoration: line-through;
+         color: #9ca3af;
+       }
+      .markdown-content a {
+        color: #4f46e5;
+      }
+      /* 消息气泡优化样式 */
+      .message-bubble {
+        word-wrap: break-word;
+        word-break: break-word;
+        white-space: pre-wrap;
+        min-height: 1.5em;
+        display: flex;
+        align-items: center;
+        /* 超过41字符自动换行 */
+        max-width: 41ch;
+        overflow-wrap: break-word;
+        hyphens: auto;
+      }
+      .user-message {
+        text-align: left;
+        justify-content: flex-start;
+      }
+      .ai-message {
+        text-align: left;
+        justify-content: flex-start;
+        text-decoration: none;
+        border-bottom: 1px solid transparent;
+        transition: all 0.2s ease;
+      }
+      .markdown-content a:hover {
+        color: #3730a3;
+        border-bottom-color: #4f46e5;
+      }
+      .markdown-content img {
+        max-width: 100%;
+        height: auto;
+        border-radius: 8px;
+        margin: 1em 0;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      }
+      .markdown-content del {
+        text-decoration: line-through;
+        color: #9ca3af;
+      }
+      .markdown-content mark {
+        background: #fef3c7;
+        padding: 2px 4px;
+        border-radius: 3px;
+      }
+      .markdown-content kbd {
+         background: #f3f4f6;
+         border: 1px solid #d1d5db;
+         border-radius: 4px;
+         padding: 2px 6px;
+         font-family: monospace;
+         font-size: 0.875em;
+         box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+       }
+       .markdown-content sup {
+         font-size: 0.75em;
+         vertical-align: super;
+         line-height: 0;
+       }
+       .markdown-content sub {
+          font-size: 0.75em;
+          vertical-align: sub;
+          line-height: 0;
+        }
+        
+        /* 流式输出光标动画 */
+        .typing-cursor {
+          display: inline-block;
+          width: 3px;
+          height: 1.2em;
+          background: linear-gradient(45deg, #6366f1, #8b5cf6);
+          margin-left: 2px;
+          border-radius: 2px;
+          animation: cursor-blink 1.2s infinite;
+        }
+        
+        .typing-dots {
+          display: inline-flex;
+          align-items: center;
+          gap: 2px;
+          margin-left: 4px;
+        }
+        
+        .typing-dot {
+          width: 4px;
+          height: 4px;
+          background: #6366f1;
+          border-radius: 50%;
+          animation: dot-bounce 1.4s infinite ease-in-out;
+        }
+        
+        .typing-dot:nth-child(1) { animation-delay: -0.32s; }
+        .typing-dot:nth-child(2) { animation-delay: -0.16s; }
+        .typing-dot:nth-child(3) { animation-delay: 0s; }
+        
+        @keyframes cursor-blink {
+          0%, 50% { opacity: 1; }
+          51%, 100% { opacity: 0; }
+        }
+        
+        @keyframes dot-bounce {
+          0%, 80%, 100% {
+            transform: scale(0.8);
+            opacity: 0.5;
+          }
+          40% {
+            transform: scale(1.2);
+            opacity: 1;
+          }
+        }
+        
+        .typing-cursor {
+          display: inline-block;
+          font-weight: bold;
+          margin-left: 2px;
+          font-size: 1.2em;
+          color: #ff6b6b;
+          animation: rainbow-color 2s ease-in-out infinite, pulse-scale 1.5s ease-in-out infinite alternate;
+          text-rendering: optimizeLegibility;
+          -webkit-font-smoothing: antialiased;
+          -moz-osx-font-smoothing: grayscale;
+        }
+        
+        @keyframes rainbow-color {
+          0% { color: #ff6b6b; }
+          16.66% { color: #4ecdc4; }
+          33.33% { color: #45b7d1; }
+          50% { color: #96ceb4; }
+          66.66% { color: #feca57; }
+          83.33% { color: #ff9ff3; }
+          100% { color: #ff6b6b; }
+        }
+        
+        @keyframes pulse-scale {
+          0% {
+            transform: scale(1) rotate(0deg);
+            opacity: 1;
+          }
+          50% {
+            transform: scale(1.15) rotate(2deg);
+            opacity: 0.8;
+          }
+          100% {
+            transform: scale(1) rotate(0deg);
+            opacity: 1;
+          }
+        }
+      }
+      
+      /* 推理过程样式 */
+      .reasoning-container {
+        transition: all 0.2s ease-out;
+      }
+      
+      .reasoning-section {
+        animation: fadeInUp 0.3s ease-out;
+        transition: all 0.1s ease-out;
+      }
+      
+      .reasoning-content {
+        transition: opacity 0.1s ease-out;
+        will-change: contents;
+        backface-visibility: hidden;
+        transform: translateZ(0);
+      }
+      
+      @keyframes fadeInUp {
+        from {
+          opacity: 0;
+          transform: translateY(10px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+      
+      .reasoning-section .text-blue-700 {
+        line-height: 1.5;
+        font-family: 'Courier New', monospace;
+      }
+      
+      /* 减少闪烁的优化 */
+      .markdown-content {
+        transition: none;
+      }
+      
+      /* 流式输出优化 */
+      .typing-dots {
+        opacity: 0.7;
+        animation: pulse 1.5s ease-in-out infinite;
+      }
+      
+      /* 推理容器展开/收起动画 */
+      .reasoning-container {
+        transition: all 0.3s ease;
+      }
+      
+      .reasoning-section {
+        transition: max-height 0.3s ease, opacity 0.3s ease;
+        overflow: hidden;
+      }
+      
+      .reasoning-content {
+        transition: opacity 0.3s ease;
+      }
+      
+      .reasoning-toggle-btn {
+        transition: transform 0.2s ease;
+      }
+      
+      .reasoning-toggle-btn:hover {
+        transform: scale(1.1);
+      }
+      
+      .reasoning-toggle-btn i {
+        transition: transform 0.3s ease;
+      }
+    </style>
+</head>
+
+<body class="font-inter bg-neutral-100 text-neutral-800 min-h-screen flex flex-col">
+  <!-- 顶部导航栏 -->
+  <header class="glass-effect shadow-lg fixed top-0 left-0 right-0 z-50 transition-all duration-300 border-b border-neutral-200/50">
+    <div class="container mx-auto px-4 py-3 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="text-primary text-2xl animate-bounce-subtle">
+          <i class="fa fa-comments-o"></i>
+        </div>
+        <div>
+          <h1 class="text-xl font-bold text-neutral-800">智能对话助手</h1>
+          <div class="flex items-center gap-2 text-xs text-neutral-500">
+            <div id="connectionStatus" class="flex items-center gap-1">
+              <div class="w-2 h-2 rounded-full bg-green-500 animate-pulse-slow"></div>
+              <span>已连接</span>
+            </div>
+            <span>•</span>
+            <span id="messageCount">0 条消息</span>
+          </div>
+        </div>
+      </div>
+      
+      <div class="flex items-center gap-2">
+        <!-- 快捷功能按钮 -->
+        <button id="clearChatBtn" class="p-2 rounded-full hover:bg-neutral-100 transition-colors" title="清空对话">
+          <i class="fa fa-trash-o text-neutral-700"></i>
+        </button>
+        <button id="exportChatBtn" class="p-2 rounded-full hover:bg-neutral-100 transition-colors" title="导出对话">
+          <i class="fa fa-download text-neutral-700"></i>
+        </button>
+        <button id="fullscreenBtn" class="p-2 rounded-full hover:bg-neutral-100 transition-colors" title="全屏模式">
+          <i class="fa fa-expand text-neutral-700"></i>
+        </button>
+        <div class="w-px h-6 bg-neutral-300 mx-1"></div>
+        <button id="settingsBtn" class="p-2 rounded-full hover:bg-neutral-100 transition-colors" title="设置">
+          <i class="fa fa-cog text-neutral-700"></i>
+        </button>
+        <button id="themeToggle" class="p-2 rounded-full hover:bg-neutral-100 transition-colors" title="切换主题">
+          <i class="fa fa-moon-o text-neutral-700"></i>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- 主内容区 -->
+  <main class="flex-1 pt-16 pb-32 px-4 md:px-6 container mx-auto max-w-4xl">
+    <!-- 对话区域 -->
+    <div id="chatContainer" class="space-y-6 py-6">
+      <!-- 欢迎消息 -->
+      <div id="welcomeMessage" class="text-center py-12 animate-fade-in">
+        <div class="text-6xl text-primary mb-4 animate-float">
+          <i class="fa fa-robot"></i>
+        </div>
+        <h2 class="text-2xl font-bold text-neutral-800 mb-2">欢迎使用智能对话助手</h2>
+        <p class="text-neutral-600 mb-6">我是您的AI助手，可以帮助您解答问题、提供建议和进行有趣的对话</p>
+        
+        <!-- 功能标签 -->
+        <div class="flex flex-wrap justify-center gap-2 mb-8">
+          <span class="px-3 py-1 bg-primary/10 text-primary rounded-full text-sm hover:bg-primary/20 transition-colors cursor-pointer">问答助手</span>
+          <span class="px-3 py-1 bg-primary/10 text-primary rounded-full text-sm hover:bg-primary/20 transition-colors cursor-pointer">创意写作</span>
+          <span class="px-3 py-1 bg-primary/10 text-primary rounded-full text-sm hover:bg-primary/20 transition-colors cursor-pointer">代码帮助</span>
+          <span class="px-3 py-1 bg-primary/10 text-primary rounded-full text-sm hover:bg-primary/20 transition-colors cursor-pointer">学习辅导</span>
+        </div>
+        
+        <!-- 快速开始建议 -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl mx-auto">
+          <div class="suggestion-card p-4 bg-white rounded-xl shadow-sm hover:shadow-md transition-all duration-300 cursor-pointer border border-neutral-200 hover:border-primary/30">
+            <div class="text-primary text-xl mb-2"><i class="fa fa-lightbulb-o"></i></div>
+            <h3 class="font-semibold text-neutral-800 mb-1">创意灵感</h3>
+            <p class="text-sm text-neutral-600">帮我想一个有趣的故事开头</p>
+          </div>
+          <div class="suggestion-card p-4 bg-white rounded-xl shadow-sm hover:shadow-md transition-all duration-300 cursor-pointer border border-neutral-200 hover:border-primary/30">
+            <div class="text-primary text-xl mb-2"><i class="fa fa-code"></i></div>
+            <h3 class="font-semibold text-neutral-800 mb-1">编程助手</h3>
+            <p class="text-sm text-neutral-600">解释一下JavaScript的闭包概念</p>
+          </div>
+          <div class="suggestion-card p-4 bg-white rounded-xl shadow-sm hover:shadow-md transition-all duration-300 cursor-pointer border border-neutral-200 hover:border-primary/30">
+            <div class="text-primary text-xl mb-2"><i class="fa fa-book"></i></div>
+            <h3 class="font-semibold text-neutral-800 mb-1">学习指导</h3>
+            <p class="text-sm text-neutral-600">制定一个学习计划</p>
+          </div>
+          <div class="suggestion-card p-4 bg-white rounded-xl shadow-sm hover:shadow-md transition-all duration-300 cursor-pointer border border-neutral-200 hover:border-primary/30">
+            <div class="text-primary text-xl mb-2"><i class="fa fa-question-circle"></i></div>
+            <h3 class="font-semibold text-neutral-800 mb-1">问题解答</h3>
+            <p class="text-sm text-neutral-600">回答我的任何疑问</p>
+          </div>
+        </div>
+      </div>
+      
+      <!-- 动态生成的对话将在这里显示 -->
+    </div>
+  </main>
+
+  <!-- 底部输入区域 -->
+  <footer class="fixed bottom-0 left-0 right-0 glass-effect border-t border-neutral-200/50 p-4 z-40">
+    <div class="container mx-auto max-w-4xl">
+      <!-- 快捷回复建议 -->
+      <div id="quickReplies" class="hidden mb-3">
+        <div class="flex gap-2 overflow-x-auto scrollbar-hide pb-2">
+          <button class="quick-reply-btn px-3 py-1 bg-neutral-100 hover:bg-neutral-200 rounded-full text-sm whitespace-nowrap transition-colors">继续</button>
+          <button class="quick-reply-btn px-3 py-1 bg-neutral-100 hover:bg-neutral-200 rounded-full text-sm whitespace-nowrap transition-colors">详细解释</button>
+          <button class="quick-reply-btn px-3 py-1 bg-neutral-100 hover:bg-neutral-200 rounded-full text-sm whitespace-nowrap transition-colors">举个例子</button>
+          <button class="quick-reply-btn px-3 py-1 bg-neutral-100 hover:bg-neutral-200 rounded-full text-sm whitespace-nowrap transition-colors">换个方式</button>
+          <button class="quick-reply-btn px-3 py-1 bg-neutral-100 hover:bg-neutral-200 rounded-full text-sm whitespace-nowrap transition-colors">总结一下</button>
+        </div>
+      </div>
+      
+      <div class="flex items-center gap-3">
+        <!-- 功能按钮 -->
+        <div class="flex gap-2">
+          <button id="toolsBtn" class="p-3 rounded-full bg-neutral-200 text-neutral-700 hover:bg-neutral-300 transition-all duration-300 hover:scale-105" title="工具">
+            <i class="fa fa-wrench"></i>
+          </button>
+        </div>
+        
+        <!-- 输入框 -->
+        <div class="flex-1 relative gradient-border">
+          <div class="relative">
+            <textarea 
+              id="messageInput" 
+              placeholder="输入您的消息... (支持 Markdown 格式)" 
+              class="w-full px-4 py-3 pr-20 border-0 rounded-xl resize-none focus:outline-none transition-all bg-transparent"
+              rows="1"
+              style="height: 100%; width: 100%; word-wrap: break-word; word-break: break-word; white-space: pre-wrap; overflow: auto; overflow-wrap: break-word; hyphens: auto; box-sizing: border-box; resize: none; scrollbar-width: none; -ms-overflow-style: none;"
+            ></textarea>
+            <div class="absolute right-2 top-1/2 transform -translate-y-1/2 flex items-center gap-1">
+              <button id="attachmentBtn" class="p-1.5 rounded-full hover:bg-neutral-100 transition-colors" title="添加附件">
+                <i class="fa fa-paperclip text-neutral-500 text-sm"></i>
+              </button>
+              <button id="voiceBtn" class="p-1.5 rounded-full hover:bg-neutral-100 transition-colors" title="语音输入">
+                <i class="fa fa-microphone text-neutral-500 text-sm"></i>
+              </button>
+              <button id="sendBtn" class="p-2 rounded-full bg-primary text-white hover:bg-primary/90 transition-all duration-300 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg">
+                <i class="fa fa-paper-plane-o"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- 状态栏 -->
+      <div class="flex items-center justify-between mt-3 text-xs text-neutral-500">
+        <div class="flex items-center gap-4">
+          <span id="charCount" class="font-mono">0/2000</span>
+          <span id="modelStatus" class="flex items-center gap-1">
+            <div class="w-2 h-2 rounded-full bg-orange-500"></div>
+            模型: 未配置
+          </span>
+          <span id="typingIndicator" class="hidden flex items-center gap-1">
+            <div class="flex gap-1">
+              <div class="w-1 h-1 bg-primary rounded-full typing-indicator" style="animation-delay: 0s"></div>
+              <div class="w-1 h-1 bg-primary rounded-full typing-indicator" style="animation-delay: 0.2s"></div>
+              <div class="w-1 h-1 bg-primary rounded-full typing-indicator" style="animation-delay: 0.4s"></div>
+            </div>
+            AI正在思考...
+          </span>
+        </div>
+        <div class="flex items-center gap-4 text-neutral-400">
+          <span class="hidden md:inline">Ctrl+Enter 发送</span>
+          <span class="hidden md:inline">•</span>
+          <span class="hidden md:inline">Shift+Enter 换行</span>
+          <span class="md:hidden">快捷键</span>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <!-- 设置面板 (默认隐藏) -->
+  <div id="settingsPanel" class="fixed inset-0 bg-black/50 z-50 hidden items-center justify-center p-4 animate-fade-in">
+    <div class="rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl animate-slide-up settings-scrollbar-hide" style="background: rgba(255, 255, 255, 0.5); backdrop-filter: blur(10px); scrollbar-width: none; -ms-overflow-style: none;">
+      <div class="p-6 border-b border-neutral-200 flex justify-between items-center bg-gradient-to-r from-primary/5 to-primary/10">
+        <div class="flex items-center gap-3">
+          <div class="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center">
+            <i class="fa fa-cog text-primary"></i>
+          </div>
+          <h2 class="text-xl font-bold text-neutral-800">系统设置</h2>
+        </div>
+        <button id="closeSettings" class="p-2 rounded-full hover:bg-neutral-100 transition-colors">
+          <i class="fa fa-times text-neutral-700"></i>
+        </button>
+      </div>
+      
+      <!-- 标签页导航 -->
+      <div class="border-b border-neutral-200">
+        <nav class="flex space-x-8 px-6" aria-label="Tabs">
+          <button class="settings-tab active py-4 px-1 border-b-2 border-primary text-primary font-medium text-sm rounded-t-lg" data-tab="model">
+            <i class="fa fa-robot mr-2"></i>模型配置
+          </button>
+          <button class="settings-tab py-4 px-1 border-b-2 border-transparent text-neutral-500 hover:text-neutral-700 font-medium text-sm rounded-t-lg" data-tab="features">
+            <i class="fa fa-cogs mr-2"></i>功能设置
+          </button>
+          <button class="settings-tab py-4 px-1 border-b-2 border-transparent text-neutral-500 hover:text-neutral-700 font-medium text-sm rounded-t-lg" data-tab="tools">
+            <i class="fa fa-wrench mr-2"></i>工具管理
+          </button>
+          <button class="settings-tab py-4 px-1 border-b-2 border-transparent text-neutral-500 hover:text-neutral-700 font-medium text-sm rounded-t-lg" data-tab="advanced">
+            <i class="fa fa-sliders mr-2"></i>高级设置
+          </button>
+        </nav>
+      </div>
+      
+      <div class="p-6">
+        <!-- 模型配置标签页 -->
+        <div id="modelTab" class="settings-content">
+          <div class="space-y-6">
+            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <div class="flex items-center gap-2 text-blue-800 mb-2">
+                <i class="fa fa-info-circle"></i>
+                <span class="font-medium">配置提示</span>
+              </div>
+              <p class="text-blue-700 text-sm">请选择您要使用的AI模型并配置相应的API密钥。支持多种主流模型提供商。</p>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label class="block text-sm font-medium text-neutral-700 mb-2">模型提供商</label>
+                <select id="modelSelect" class="w-full px-4 py-3 border border-neutral-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all">
+                  <option value="openai">🤖 OpenAI (GPT系列)</option>
+                  <option value="anthropic">🧠 Anthropic (Claude)</option>
+                  <option value="deepseek">🧠 DeepSeek</option>
+                  <option value="google">🔍 Google (Gemini)</option>
+                  <option value="xai">🚀 xAI (Grok)</option>
+                  <option value="mistral">🌟 Mistral AI</option>
+                  <option value="cohere">💫 Cohere</option>
+                  <option value="perplexity">🔮 Perplexity</option>
+                  <option value="together">🤝 Together AI</option>
+                  <option value="groq">⚡ Groq</option>
+                  <option value="fireworks">🎆 Fireworks AI</option>
+                  <option value="baidu">🐻 百度 (文心一言)</option>
+                  <option value="ali">☁️ 阿里 (通义千问)</option>
+                  <option value="tencent">🐧 腾讯 (混元)</option>
+                  <option value="zhipu">🤖 智谱 (GLM)</option>
+                  <option value="moonshot">🌙 月之暗面 (Kimi)</option>
+                  <option value="minimax">🎯 MiniMax</option>
+                  <option value="custom">⚙️ 自定义模型</option>
+                </select>
+              </div>
+              
+              <div>
+                <label class="block text-sm font-medium text-neutral-700 mb-2">模型版本</label>
+                <div class="relative">
+                  <select id="modelVersion" class="w-full px-4 py-3 border border-neutral-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all">
+                    <!-- OpenAI 模型 -->
+                    <optgroup label="OpenAI">
+                      <option value="gpt-4o">GPT-4o</option>
+                      <option value="gpt-4o-mini">GPT-4o Mini</option>
+                      <option value="gpt-4-turbo">GPT-4 Turbo</option>
+                      <option value="gpt-4">GPT-4</option>
+                      <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+                      <option value="o1-preview">o1-preview</option>
+                      <option value="o1-mini">o1-mini</option>
+                    </optgroup>
+                    <!-- Anthropic 模型 -->
+                    <optgroup label="Anthropic">
+                      <option value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet</option>
+                      <option value="claude-3-5-haiku-20241022">Claude 3.5 Haiku</option>
+                      <option value="claude-3-opus-20240229">Claude 3 Opus</option>
+                      <option value="claude-3-sonnet-20240229">Claude 3 Sonnet</option>
+                      <option value="claude-3-haiku-20240307">Claude 3 Haiku</option>
+                    </optgroup>
+                    <!-- DeepSeek 模型 -->
+                    <optgroup label="DeepSeek">
+                      <option value="deepseek-reasoner">DeepSeek Reasoner</option>
+                      <option value="deepseek-chat">DeepSeek Chat</option>
+                      <option value="deepseek-coder">DeepSeek Coder</option>
+                    </optgroup>
+                    <!-- Google 模型 -->
+                    <optgroup label="Google">
+                      <option value="gemini-2.0-flash-exp">Gemini 2.0 Flash</option>
+                      <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
+                      <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
+                      <option value="gemini-pro">Gemini Pro</option>
+                    </optgroup>
+                    <!-- xAI 模型 -->
+                    <optgroup label="xAI">
+                      <option value="grok-beta">Grok Beta</option>
+                      <option value="grok-vision-beta">Grok Vision Beta</option>
+                    </optgroup>
+                    <!-- Mistral 模型 -->
+                    <optgroup label="Mistral">
+                      <option value="mistral-large-latest">Mistral Large</option>
+                      <option value="mistral-medium-latest">Mistral Medium</option>
+                      <option value="mistral-small-latest">Mistral Small</option>
+                      <option value="codestral-latest">Codestral</option>
+                    </optgroup>
+                    <!-- 其他模型 -->
+                    <optgroup label="其他">
+                      <option value="command-r-plus">Cohere Command R+</option>
+                      <option value="llama-3.1-405b-reasoning">Perplexity Llama 3.1 405B</option>
+                      <option value="meta-llama/Llama-3.2-90B-Vision-Instruct-Turbo">Together Llama 3.2 90B</option>
+                      <option value="llama-3.1-70b-versatile">Groq Llama 3.1 70B</option>
+                      <option value="accounts/fireworks/models/llama-v3p1-405b-instruct">Fireworks Llama 3.1 405B</option>
+                    </optgroup>
+                    <!-- 中文模型 -->
+                    <optgroup label="中文模型">
+                      <option value="ernie-4.0-8k">文心一言 4.0</option>
+                      <option value="qwen-max">通义千问 Max</option>
+                      <option value="qwen3-235b-a22b">通义千问 Qwen3-235B</option>
+                      <option value="hunyuan-pro">腾讯混元 Pro</option>
+                      <option value="glm-4">智谱 GLM-4</option>
+                      <option value="moonshot-v1-128k">Kimi 128K</option>
+                      <option value="kimi-k2-0711-preview">Kimi K2 Preview</option>
+                      <option value="abab6.5-chat">MiniMax abab6.5</option>
+                    </optgroup>
+                    <option value="custom">🔧 自定义模型名称</option>
+                  </select>
+                </div>
+                <!-- 自定义模型输入框 -->
+                <div id="customModelInput" class="mt-2 hidden">
+                  <input type="text" id="customModelName" placeholder="输入自定义模型名称，如: gpt-4o-2024-08-06" class="w-full px-4 py-3 border border-neutral-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all">
+                  <p class="text-xs text-neutral-500 mt-1">请输入完整的模型名称，确保与API提供商的模型名称一致</p>
+                </div>
+              </div>
+            </div>
+            
+            <div>
+              <label class="block text-sm font-medium text-neutral-700 mb-2">API 密钥</label>
+              <form class="relative">
+                <input type="password" id="apiKey" placeholder="sk-... (OpenAI/DeepSeek API Key)" class="w-full px-4 py-3 pr-12 border border-neutral-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all">
+                <button type="button" class="absolute right-3 top-1/2 transform -translate-y-1/2 text-neutral-500 hover:text-neutral-700" onclick="togglePasswordVisibility('apiKey')">
+                  <i class="fa fa-eye"></i>
+                </button>
+              </form>
+              <p class="text-xs text-neutral-500 mt-1">您的API密钥将安全存储在本地浏览器中</p>
+            </div>
+            
+            <div>
+              <label class="block text-sm font-medium text-neutral-700 mb-2">API 基础URL (可选)</label>
+              <input type="url" id="apiBaseUrl" placeholder="https://api.openai.com (OpenAI) 或 https://api.deepseek.com (DeepSeek)" class="w-full px-4 py-3 border border-neutral-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all">
+              <p class="text-xs text-neutral-500 mt-1">自定义API端点，留空使用默认地址</p>
+            </div>
+            
+            <!-- 模型参数配置 -->
+            <div class="bg-neutral-50 rounded-xl p-4">
+              <h4 class="font-medium text-neutral-800 mb-3">模型参数</h4>
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label class="block text-sm font-medium text-neutral-700 mb-1">温度 (Temperature)</label>
+                  <input type="range" id="temperature" min="0" max="2" step="0.1" value="0.7" class="w-full">
+                  <div class="flex justify-between text-xs text-neutral-500 mt-1">
+                    <span>保守 (0)</span>
+                    <span id="temperatureValue">0.7</span>
+                    <span>创意 (2)</span>
+                  </div>
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-neutral-700 mb-1">最大令牌数</label>
+                  <input type="number" id="maxTokens" value="2048" min="1" max="8192" class="w-full px-3 py-2 border border-neutral-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                </div>
+              </div>
+            </div>
+            
+            <!-- 连接测试 -->
+            <div class="flex gap-3">
+              <button id="testConnection" class="flex-1 py-3 border border-primary text-primary rounded-xl hover:bg-primary/5 transition-colors font-medium flex items-center justify-center gap-2">
+                <i class="fa fa-plug"></i>
+                测试连接
+              </button>
+              <button id="saveModelConfig" class="flex-1 py-3 bg-primary text-white rounded-xl hover:bg-primary/90 transition-colors font-medium flex items-center justify-center gap-2">
+                <i class="fa fa-save"></i>
+                保存配置
+              </button>
+            </div>
+          </div>
+        </div>
+        
+        <!-- 功能设置标签页 -->
+        <div id="featuresTab" class="settings-content hidden">
+          <div class="space-y-6">
+            <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+              <div class="flex items-center gap-2 text-green-800 mb-2">
+                <i class="fa fa-leaf"></i>
+                <span class="font-medium">功能管理</span>
+              </div>
+              <p class="text-green-700 text-sm">启用或禁用各种AI助手功能，根据您的需求定制体验。</p>
+            </div>
+            
+            <!-- 核心功能 -->
+            <div class="bg-white border border-neutral-200 rounded-xl p-5">
+              <h4 class="font-semibold text-neutral-800 mb-4 flex items-center gap-2">
+                <i class="fa fa-star text-yellow-500"></i>
+                核心功能
+              </h4>
+              <div class="space-y-4">
+                <div class="flex items-center justify-between p-3 bg-neutral-50 rounded-lg">
+                  <div>
+                    <label class="font-medium text-neutral-700">联网搜索</label>
+                    <p class="text-sm text-neutral-500">允许AI访问互联网获取最新信息</p>
+                  </div>
+                  <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" id="webAccessToggle" class="sr-only peer" checked>
+                    <div class="w-11 h-6 bg-neutral-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary/30 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-neutral-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                  </label>
+                </div>
+                
+                <div class="flex items-center justify-between p-3 bg-neutral-50 rounded-lg">
+                  <div>
+                    <label class="font-medium text-neutral-700">自动工具调用</label>
+                    <p class="text-sm text-neutral-500">AI可以自动选择和使用合适的工具</p>
+                  </div>
+                  <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" id="autoToolsToggle" class="sr-only peer">
+                    <div class="w-11 h-6 bg-neutral-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary/30 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-neutral-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                  </label>
+                </div>
+                
+                <div class="flex items-center justify-between p-3 bg-neutral-50 rounded-lg">
+                  <div>
+                    <label class="font-medium text-neutral-700">语音输入</label>
+                    <p class="text-sm text-neutral-500">支持语音转文字输入功能</p>
+                  </div>
+                  <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" id="voiceInputToggle" class="sr-only peer" checked>
+                    <div class="w-11 h-6 bg-neutral-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary/30 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-neutral-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                  </label>
+                </div>
+                
+                <div class="flex items-center justify-between p-3 bg-neutral-50 rounded-lg">
+                  <div>
+                    <label class="font-medium text-neutral-700">Markdown渲染</label>
+                    <p class="text-sm text-neutral-500">美化显示代码和格式化文本</p>
+                  </div>
+                  <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" id="markdownToggle" class="sr-only peer" checked>
+                    <div class="w-11 h-6 bg-neutral-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary/30 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-neutral-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                  </label>
+                </div>
+              </div>
+            </div>
+            
+            <!-- 界面设置 -->
+            <div class="bg-white border border-neutral-200 rounded-xl p-5">
+              <h4 class="font-semibold text-neutral-800 mb-4 flex items-center gap-2">
+                <i class="fa fa-paint-brush text-purple-500"></i>
+                界面设置
+              </h4>
+              <div class="space-y-4">
+                <div class="flex items-center justify-between p-3 bg-neutral-50 rounded-lg">
+                  <div>
+                    <label class="font-medium text-neutral-700">深色模式</label>
+                    <p class="text-sm text-neutral-500">切换到深色主题界面</p>
+                  </div>
+                  <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" id="darkModeToggle" class="sr-only peer">
+                    <div class="w-11 h-6 bg-neutral-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary/30 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-neutral-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                  </label>
+                </div>
+                
+                <div class="flex items-center justify-between p-3 bg-neutral-50 rounded-lg">
+                  <div>
+                    <label class="font-medium text-neutral-700">动画效果</label>
+                    <p class="text-sm text-neutral-500">启用界面动画和过渡效果</p>
+                  </div>
+                  <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" id="animationsToggle" class="sr-only peer" checked>
+                    <div class="w-11 h-6 bg-neutral-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary/30 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-neutral-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                  </label>
+                </div>
+                
+                <div class="flex items-center justify-between p-3 bg-neutral-50 rounded-lg">
+                  <div>
+                    <label class="font-medium text-neutral-700">快捷回复</label>
+                    <p class="text-sm text-neutral-500">显示常用回复建议按钮</p>
+                  </div>
+                  <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" id="quickRepliesToggle" class="sr-only peer" checked>
+                    <div class="w-11 h-6 bg-neutral-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary/30 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-neutral-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                  </label>
+                </div>
+              </div>
+            </div>
+            
+            <!-- 头像设置 -->
+            <div class="bg-white border border-neutral-200 rounded-xl p-5">
+              <h4 class="font-semibold text-neutral-800 mb-4 flex items-center gap-2">
+                <i class="fa fa-user-circle text-indigo-500"></i>
+                头像设置
+              </h4>
+              <div class="space-y-4">
+                <!-- 用户头像设置 -->
+                <div class="p-4 bg-neutral-50 rounded-lg">
+                  <div class="flex items-center gap-4 mb-3">
+                    <div id="userAvatarPreview" class="w-12 h-12 rounded-full bg-neutral-200 flex items-center justify-center text-neutral-700 flex-shrink-0">
+                      <i class="fa fa-user"></i>
+                    </div>
+                    <div class="flex-1">
+                      <label class="font-medium text-neutral-700">用户头像</label>
+                      <p class="text-sm text-neutral-500">自定义您的个人头像</p>
+                    </div>
+                  </div>
+                  <div class="space-y-3">
+                    <div>
+                      <label class="block text-sm font-medium text-neutral-700 mb-1">头像URL</label>
+                      <input type="url" id="userAvatarUrl" placeholder="https://example.com/avatar.jpg" class="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm">
+                    </div>
+                    <div class="flex gap-2">
+                      <button id="uploadUserAvatar" class="flex-1 py-2 px-3 bg-neutral-100 text-neutral-700 rounded-lg hover:bg-neutral-200 transition-colors text-sm font-medium flex items-center justify-center gap-2">
+                        <i class="fa fa-upload"></i>
+                        上传图片
+                      </button>
+                      <button id="resetUserAvatar" class="py-2 px-3 text-neutral-500 hover:text-neutral-700 transition-colors text-sm">
+                        <i class="fa fa-refresh"></i>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                
+                <!-- AI模型头像设置 -->
+                <div class="p-4 bg-neutral-50 rounded-lg">
+                  <div class="flex items-center gap-4 mb-3">
+                    <div id="aiAvatarPreview" class="w-12 h-12 rounded-full bg-primary flex items-center justify-center text-white flex-shrink-0">
+                      <i class="fa fa-robot"></i>
+                    </div>
+                    <div class="flex-1">
+                      <label class="font-medium text-neutral-700">AI助手头像</label>
+                      <p class="text-sm text-neutral-500">为不同AI模型设置专属头像</p>
+                    </div>
+                  </div>
+                  <div class="space-y-3">
+                    <div>
+                      <label class="block text-sm font-medium text-neutral-700 mb-1">当前模型</label>
+                      <select id="avatarModelSelect" class="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm">
+                        <option value="openai">🤖 OpenAI (GPT系列)</option>
+                        <option value="anthropic">🧠 Anthropic (Claude)</option>
+                        <option value="deepseek">🧠 DeepSeek</option>
+                        <option value="google">🔍 Google (Gemini)</option>
+                        <option value="xai">🚀 xAI (Grok)</option>
+                        <option value="mistral">🌟 Mistral AI</option>
+                        <option value="cohere">💫 Cohere</option>
+                        <option value="perplexity">🔮 Perplexity</option>
+                        <option value="together">🤝 Together AI</option>
+                        <option value="groq">⚡ Groq</option>
+                        <option value="fireworks">🎆 Fireworks AI</option>
+                        <option value="baidu">🐻 百度 (文心一言)</option>
+                        <option value="ali">☁️ 阿里 (通义千问)</option>
+                        <option value="tencent">🐧 腾讯 (混元)</option>
+                        <option value="zhipu">🧠 智谱 (GLM)</option>
+                        <option value="moonshot">🌙 月之暗面 (Kimi)</option>
+                        <option value="minimax">📱 MiniMax</option>
+                        <option value="custom">🔧 自定义</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label class="block text-sm font-medium text-neutral-700 mb-1">头像URL</label>
+                      <input type="url" id="aiAvatarUrl" placeholder="https://example.com/ai-avatar.jpg" class="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm">
+                    </div>
+                    <div class="flex gap-2">
+                      <button id="uploadAiAvatar" class="flex-1 py-2 px-3 bg-neutral-100 text-neutral-700 rounded-lg hover:bg-neutral-200 transition-colors text-sm font-medium flex items-center justify-center gap-2">
+                        <i class="fa fa-upload"></i>
+                        上传图片
+                      </button>
+                      <button id="resetAiAvatar" class="py-2 px-3 text-neutral-500 hover:text-neutral-700 transition-colors text-sm">
+                        <i class="fa fa-refresh"></i>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                
+                <!-- 预设头像 -->
+                <div class="p-4 bg-neutral-50 rounded-lg">
+                  <label class="block font-medium text-neutral-700 mb-3">预设头像</label>
+                  <div class="grid grid-cols-6 gap-3">
+                    <button class="preset-avatar w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center text-white hover:scale-110 transition-transform" data-avatar="🤖">
+                      🤖
+                    </button>
+                    <button class="preset-avatar w-10 h-10 rounded-full bg-green-500 flex items-center justify-center text-white hover:scale-110 transition-transform" data-avatar="🧠">
+                      🧠
+                    </button>
+                    <button class="preset-avatar w-10 h-10 rounded-full bg-purple-500 flex items-center justify-center text-white hover:scale-110 transition-transform" data-avatar="⚡">
+                      ⚡
+                    </button>
+                    <button class="preset-avatar w-10 h-10 rounded-full bg-red-500 flex items-center justify-center text-white hover:scale-110 transition-transform" data-avatar="🔥">
+                      🔥
+                    </button>
+                    <button class="preset-avatar w-10 h-10 rounded-full bg-yellow-500 flex items-center justify-center text-white hover:scale-110 transition-transform" data-avatar="⭐">
+                      ⭐
+                    </button>
+                    <button class="preset-avatar w-10 h-10 rounded-full bg-indigo-500 flex items-center justify-center text-white hover:scale-110 transition-transform" data-avatar="💎">
+                      💎
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- 工具管理标签页 -->
+        <div id="toolsTab" class="settings-content hidden">
+          <div class="space-y-6">
+            <div class="bg-orange-50 border border-orange-200 rounded-lg p-4">
+              <div class="flex items-center gap-2 text-orange-800 mb-2">
+                <i class="fa fa-wrench"></i>
+                <span class="font-medium">工具管理</span>
+              </div>
+              <p class="text-orange-700 text-sm">管理AI助手可以使用的工具，每个工具都有特定的功能和用途。</p>
+            </div>
+            
+            <!-- 内置工具 -->
+            <div class="bg-white border border-neutral-200 rounded-xl p-5">
+              <h4 class="font-semibold text-neutral-800 mb-4 flex items-center gap-2">
+                <i class="fa fa-cube text-blue-500"></i>
+                内置工具
+              </h4>
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="p-4 border border-neutral-200 rounded-lg hover:border-primary/30 transition-colors">
+                  <div class="flex items-center justify-between mb-3">
+                    <div class="flex items-center gap-3">
+                      <div class="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
+                        <i class="fa fa-calculator text-blue-600"></i>
+                      </div>
+                      <div>
+                        <h5 class="font-medium text-neutral-800">计算器</h5>
+                        <p class="text-xs text-neutral-500">数学计算和表达式求值</p>
+                      </div>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                      <input type="checkbox" class="sr-only peer" checked>
+                      <div class="w-9 h-5 bg-neutral-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary/30 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-neutral-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary"></div>
+                    </label>
+                  </div>
+                  <p class="text-sm text-neutral-600">支持基础数学运算、科学计算和单位转换</p>
+                </div>
+                
+                <div class="p-4 border border-neutral-200 rounded-lg hover:border-primary/30 transition-colors">
+                  <div class="flex items-center justify-between mb-3">
+                    <div class="flex items-center gap-3">
+                      <div class="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center">
+                        <i class="fa fa-code text-green-600"></i>
+                      </div>
+                      <div>
+                        <h5 class="font-medium text-neutral-800">代码解释器</h5>
+                        <p class="text-xs text-neutral-500">代码执行和调试</p>
+                      </div>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                      <input type="checkbox" class="sr-only peer" checked>
+                      <div class="w-9 h-5 bg-neutral-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary/30 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-neutral-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary"></div>
+                    </label>
+                  </div>
+                  <p class="text-sm text-neutral-600">运行Python、JavaScript等代码片段</p>
+                </div>
+                
+                <div class="p-4 border border-neutral-200 rounded-lg hover:border-primary/30 transition-colors">
+                  <div class="flex items-center justify-between mb-3">
+                    <div class="flex items-center gap-3">
+                      <div class="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center">
+                        <i class="fa fa-desktop text-purple-600"></i>
+                      </div>
+                      <div>
+                        <h5 class="font-medium text-neutral-800">网页截图</h5>
+                        <p class="text-xs text-neutral-500">网页内容截取</p>
+                      </div>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                      <input type="checkbox" class="sr-only peer" checked>
+                      <div class="w-9 h-5 bg-neutral-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary/30 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-neutral-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary"></div>
+                    </label>
+                  </div>
+                  <p class="text-sm text-neutral-600">截取网页内容并进行分析</p>
+                </div>
+                
+                <div class="p-4 border border-neutral-200 rounded-lg hover:border-primary/30 transition-colors">
+                  <div class="flex items-center justify-between mb-3">
+                    <div class="flex items-center gap-3">
+                      <div class="w-10 h-10 rounded-lg bg-red-100 flex items-center justify-center">
+                        <i class="fa fa-file-text-o text-red-600"></i>
+                      </div>
+                      <div>
+                        <h5 class="font-medium text-neutral-800">文件处理</h5>
+                        <p class="text-xs text-neutral-500">文档读取和处理</p>
+                      </div>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                      <input type="checkbox" class="sr-only peer">
+                      <div class="w-9 h-5 bg-neutral-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary/30 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-neutral-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary"></div>
+                    </label>
+                  </div>
+                  <p class="text-sm text-neutral-600">处理PDF、Word、Excel等文件格式</p>
+                </div>
+              </div>
+              
+              <div class="mt-6 pt-4 border-t border-neutral-200">
+                <button class="w-full py-3 text-primary border border-primary/30 rounded-xl hover:bg-primary/5 transition-colors font-medium flex items-center justify-center gap-2">
+                  <i class="fa fa-plus-circle"></i>
+                  添加自定义工具
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- 高级设置标签页 -->
+        <div id="advancedTab" class="settings-content hidden">
+          <div class="space-y-6">
+            <div class="bg-red-50 border border-red-200 rounded-lg p-4">
+              <div class="flex items-center gap-2 text-red-800 mb-2">
+                <i class="fa fa-exclamation-triangle"></i>
+                <span class="font-medium">高级设置</span>
+              </div>
+              <p class="text-red-700 text-sm">这些设置可能影响系统性能和稳定性，请谨慎修改。</p>
+            </div>
+            
+            <!-- 性能设置 -->
+            <div class="bg-white border border-neutral-200 rounded-xl p-5">
+              <h4 class="font-semibold text-neutral-800 mb-4 flex items-center gap-2">
+                <i class="fa fa-tachometer text-green-500"></i>
+                性能优化
+              </h4>
+              <div class="space-y-4">
+                <div>
+                  <label class="block text-sm font-medium text-neutral-700 mb-2">请求超时时间 (秒)</label>
+                  <input type="number" id="requestTimeout" value="30" min="5" max="300" class="w-full px-4 py-3 border border-neutral-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                </div>
+                
+                <div>
+                  <label class="block text-sm font-medium text-neutral-700 mb-2">最大重试次数</label>
+                  <input type="number" id="maxRetries" value="3" min="0" max="10" class="w-full px-4 py-3 border border-neutral-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                </div>
+                
+                <div>
+                  <label class="block text-sm font-medium text-neutral-700 mb-2">消息历史保留数量</label>
+                  <input type="number" id="historyLimit" value="100" min="10" max="1000" class="w-full px-4 py-3 border border-neutral-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                </div>
+              </div>
+            </div>
+            
+            <!-- 数据管理 -->
+            <div class="bg-white border border-neutral-200 rounded-xl p-5">
+              <h4 class="font-semibold text-neutral-800 mb-4 flex items-center gap-2">
+                <i class="fa fa-database text-blue-500"></i>
+                数据管理
+              </h4>
+              <div class="space-y-3">
+                <button class="w-full py-3 text-left px-4 bg-neutral-50 hover:bg-neutral-100 rounded-xl transition-colors flex items-center justify-between">
+                  <div>
+                    <span class="font-medium text-neutral-800">导出聊天记录</span>
+                    <p class="text-sm text-neutral-500">将所有对话导出为JSON文件</p>
+                  </div>
+                  <i class="fa fa-download text-neutral-500"></i>
+                </button>
+                
+                <button class="w-full py-3 text-left px-4 bg-neutral-50 hover:bg-neutral-100 rounded-xl transition-colors flex items-center justify-between">
+                  <div>
+                    <span class="font-medium text-neutral-800">导入聊天记录</span>
+                    <p class="text-sm text-neutral-500">从文件恢复对话历史</p>
+                  </div>
+                  <i class="fa fa-upload text-neutral-500"></i>
+                </button>
+                
+                <button class="w-full py-3 text-left px-4 bg-red-50 hover:bg-red-100 rounded-xl transition-colors flex items-center justify-between text-red-700">
+                  <div>
+                    <span class="font-medium">清除所有数据</span>
+                    <p class="text-sm text-red-500">删除所有本地存储的数据</p>
+                  </div>
+                  <i class="fa fa-trash text-red-500"></i>
+                </button>
+              </div>
+            </div>
+            
+            <!-- 开发者选项 -->
+            <div class="bg-white border border-neutral-200 rounded-xl p-5">
+              <h4 class="font-semibold text-neutral-800 mb-4 flex items-center gap-2">
+                <i class="fa fa-code text-purple-500"></i>
+                开发者选项
+              </h4>
+              <div class="space-y-4">
+                <div class="flex items-center justify-between p-3 bg-neutral-50 rounded-lg">
+                  <div>
+                    <label class="font-medium text-neutral-700">调试模式</label>
+                    <p class="text-sm text-neutral-500">显示详细的调试信息</p>
+                  </div>
+                  <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" id="debugMode" class="sr-only peer">
+                    <div class="w-11 h-6 bg-neutral-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary/30 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-neutral-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                  </label>
+                </div>
+                
+                <div class="flex items-center justify-between p-3 bg-neutral-50 rounded-lg">
+                  <div>
+                    <label class="font-medium text-neutral-700">API日志记录</label>
+                    <p class="text-sm text-neutral-500">记录所有API请求和响应</p>
+                  </div>
+                  <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" id="apiLogging" class="sr-only peer">
+                    <div class="w-11 h-6 bg-neutral-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary/30 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-neutral-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                  </label>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- 保存设置 -->
+        <div class="pt-6 border-t border-neutral-200 mt-6">
+          <div class="flex gap-3">
+            <button id="resetSettings" class="flex-1 py-3 border border-neutral-300 text-neutral-700 rounded-xl hover:bg-neutral-50 transition-colors font-medium flex items-center justify-center gap-2">
+              <i class="fa fa-refresh"></i>
+              重置设置
+            </button>
+            <button id="saveSettings" class="flex-1 py-3 bg-primary text-white rounded-xl hover:bg-primary/90 transition-colors font-medium flex items-center justify-center gap-2">
+              <i class="fa fa-save"></i>
+              保存设置
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- 工具选择面板 (默认隐藏) -->
+  <div id="toolsPanel" class="fixed bottom-24 right-4 md:right-6 z-40 bg-white rounded-xl shadow-lg w-64 hidden">
+    <div class="p-3 border-b border-neutral-200">
+      <h3 class="font-medium text-neutral-800">选择工具</h3>
+    </div>
+    <div class="p-2">
+      <button class="w-full text-left px-3 py-2 rounded-lg hover:bg-neutral-100 transition-colors flex items-center gap-2 text-neutral-700">
+        <i class="fa fa-code w-5 text-center"></i>
+        <span>代码解释器</span>
+      </button>
+      </div>
+      <div class="p-2 border-t border-neutral-200">
+        <button id="closeToolsPanel" class="w-full text-left px-3 py-2 rounded-lg hover:bg-neutral-100 transition-colors flex items-center gap-2 text-neutral-700">
+          <i class="fa fa-times w-5 text-center"></i>
+          <span>取消</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 工具执行结果面板 (默认隐藏) -->
+  <div id="toolResultPanel" class="fixed inset-0 bg-black/50 z-50 hidden items-center justify-center p-4">
+    <div class="bg-white rounded-2xl w-full max-w-2xl max-h-[80vh] overflow-y-auto shadow-xl">
+      <div class="p-5 border-b border-neutral-200 flex justify-between items-center">
+        <h2 class="text-xl font-bold text-neutral-800">工具执行结果</h2>
+        <button id="closeToolResult" class="p-2 rounded-full hover:bg-neutral-100">
+          <i class="fa fa-times text-neutral-700"></i>
+        </button>
+      </div>
+      
+      <div id="toolResultContent" class="p-5">
+        <!-- 动态内容将在这里显示 -->
+      </div>
+    </div>
+  </div>
+
+  <!-- JavaScript -->
+  <script>
+    // DOM元素
+    const settingsBtn = document.getElementById('settingsBtn');
+    const settingsPanel = document.getElementById('settingsPanel');
+    const closeSettings = document.getElementById('closeSettings');
+    const saveSettings = document.getElementById('saveSettings');
+    const resetSettings = document.getElementById('resetSettings');
+    const themeToggle = document.getElementById('themeToggle');
+    const messageInput = document.getElementById('messageInput');
+    const sendBtn = document.getElementById('sendBtn');
+    const chatContainer = document.getElementById('chatContainer');
+    const toolsBtn = document.getElementById('toolsBtn');
+    const toolsPanel = document.getElementById('toolsPanel');
+    const closeToolsPanel = document.getElementById('closeToolsPanel');
+    const webSearchBtn = document.getElementById('webSearchBtn');
+    const toolResultPanel = document.getElementById('toolResultPanel');
+    const closeToolResult = document.getElementById('closeToolResult');
+    const clearChatBtn = document.getElementById('clearChatBtn');
+    const exportChatBtn = document.getElementById('exportChatBtn');
+    const fullscreenBtn = document.getElementById('fullscreenBtn');
+    const attachmentBtn = document.getElementById('attachmentBtn');
+    const voiceBtn = document.getElementById('voiceBtn');
+    
+    // 标签页元素
+    const settingsTabs = document.querySelectorAll('.settings-tab');
+    const settingsContents = document.querySelectorAll('.settings-content');
+    
+    // 状态变量
+    let isDarkMode = false;
+    let webSearchEnabled = false;
+    
+    // 对话历史记录
+    let conversationHistory = [];
+    const MAX_HISTORY_LENGTH = 20; // 最大保存20轮对话
+    
+    // 初始化事件监听
+    function initEventListeners() {
+      // 设置面板
+      if (settingsBtn) {
+        settingsBtn.addEventListener('click', () => {
+          if (settingsPanel) settingsPanel.style.display = 'flex';
+        });
+      }
+      
+      if (closeSettings) {
+        closeSettings.addEventListener('click', () => {
+          if (settingsPanel) settingsPanel.style.display = 'none';
+        });
+      }
+      
+      if (saveSettings) {
+        saveSettings.addEventListener('click', () => {
+          // 保存设置逻辑
+          saveAllSettings();
+          showNotification('设置已保存！', 'success');
+          if (settingsPanel) settingsPanel.style.display = 'none';
+        });
+      }
+      
+      if (resetSettings) {
+        resetSettings.addEventListener('click', () => {
+          if (confirm('确定要重置所有设置吗？此操作不可撤销。')) {
+            resetAllSettings();
+            showNotification('设置已重置！', 'info');
+          }
+        });
+      }
+      
+      // 标签页切换
+      settingsTabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+          const targetTab = tab.dataset.tab;
+          switchSettingsTab(targetTab);
+        });
+      });
+      
+      // 顶部导航按钮
+      if (clearChatBtn) {
+        clearChatBtn.addEventListener('click', () => {
+          if (confirm('确定要清空所有对话记录吗？')) {
+            clearChatHistory();
+            showNotification('对话记录已清空', 'info');
+          }
+        });
+      }
+      
+      if (exportChatBtn) {
+        exportChatBtn.addEventListener('click', () => {
+          exportChatHistory();
+        });
+      }
+      
+      if (fullscreenBtn) {
+        fullscreenBtn.addEventListener('click', () => {
+          toggleFullscreen();
+        });
+      }
+      
+      // 底部输入区按钮
+      if (attachmentBtn) {
+        attachmentBtn.addEventListener('click', () => {
+          handleAttachment();
+        });
+      }
+      
+      if (voiceBtn) {
+        voiceBtn.addEventListener('click', () => {
+          toggleVoiceInput();
+        });
+      }
+      
+      // AI助手按钮
+      const aiBtn = document.getElementById('aiBtn');
+      if (aiBtn) {
+        aiBtn.addEventListener('click', () => {
+          showNotification('AI助手已激活', 'info');
+          if (messageInput) {
+            messageInput.focus();
+          }
+        });
+      }
+      
+      // 附件按钮（底部圆形按钮）
+      const attachBtn = document.getElementById('attachBtn');
+      if (attachBtn) {
+        attachBtn.addEventListener('click', () => {
+          handleAttachment();
+        });
+      }
+      
+      // 主题切换
+      if (themeToggle) {
+        themeToggle.addEventListener('click', () => {
+          isDarkMode = !isDarkMode;
+          document.body.classList.toggle('bg-neutral-900', isDarkMode);
+          document.body.classList.toggle('bg-neutral-100', !isDarkMode);
+          document.body.classList.toggle('text-white', isDarkMode);
+          document.body.classList.toggle('text-neutral-800', !isDarkMode);
+          
+          const moonIcon = themeToggle.querySelector('i');
+          if (moonIcon) {
+            if (isDarkMode) {
+              moonIcon.classList.remove('fa-moon-o');
+              moonIcon.classList.add('fa-sun-o');
+            } else {
+              moonIcon.classList.remove('fa-sun-o');
+              moonIcon.classList.add('fa-moon-o');
+            }
+          }
+        });
+      }
+      
+      // 工具面板
+      if (toolsBtn && toolsPanel) {
+        toolsBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          toolsPanel.style.display = toolsPanel.style.display === 'block' ? 'none' : 'block';
+        });
+      }
+      
+      if (closeToolsPanel && toolsPanel) {
+        closeToolsPanel.addEventListener('click', () => {
+          toolsPanel.style.display = 'none';
+        });
+      }
+      
+      // 点击外部关闭工具面板
+      if (toolsPanel && toolsBtn) {
+        document.addEventListener('click', (e) => {
+          if (!toolsPanel.contains(e.target) && e.target !== toolsBtn) {
+            toolsPanel.style.display = 'none';
+          }
+        });
+      }
+      
+      // 联网搜索切换
+      if (webSearchBtn) {
+        webSearchBtn.addEventListener('click', () => {
+          webSearchEnabled = !webSearchEnabled;
+          webSearchBtn.classList.toggle('bg-primary/10', webSearchEnabled);
+          webSearchBtn.classList.toggle('text-primary', webSearchEnabled);
+        });
+      }
+      
+      // 关闭工具结果面板
+      if (closeToolResult && toolResultPanel) {
+        closeToolResult.addEventListener('click', () => {
+          toolResultPanel.style.display = 'none';
+        });
+      }
+      
+      // 发送消息
+      if (sendBtn) {
+        sendBtn.addEventListener('click', sendMessage);
+      }
+      
+      // 回车发送消息
+      if (messageInput) {
+        messageInput.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            sendMessage();
+          }
+        });
+        
+        // 自动调整输入框高度
+        messageInput.addEventListener('input', () => {
+          messageInput.style.height = 'auto';
+          messageInput.style.height = Math.min(messageInput.scrollHeight, 200) + 'px';
+        });
+      }
+    }
+    
+    // 网络搜索功能
+    async function performWebSearch(query) {
+      try {
+        // 使用DuckDuckGo Instant Answer API进行搜索
+        const searchUrl = `https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&no_html=1&skip_disambig=1`;
+        
+        const response = await fetch(searchUrl, {
+          method: 'GET',
+          mode: 'cors'
+        });
+        
+        if (!response.ok) {
+          throw new Error('搜索请求失败');
+        }
+        
+        const data = await response.json();
+        
+        let searchResults = '';
+        
+        // 处理即时答案
+        if (data.Answer) {
+          searchResults += `即时答案：${data.Answer}\n\n`;
+        }
+        
+        // 处理摘要信息
+        if (data.Abstract) {
+          searchResults += `摘要：${data.Abstract}\n\n`;
+        }
+        
+        // 处理相关主题
+        if (data.RelatedTopics && data.RelatedTopics.length > 0) {
+          searchResults += '相关信息：\n';
+          data.RelatedTopics.slice(0, 3).forEach((topic, index) => {
+            if (topic.Text) {
+              searchResults += `${index + 1}. ${topic.Text}\n`;
+            }
+          });
+        }
+        
+        return searchResults || '未找到相关搜索结果';
+        
+      } catch (error) {
+        console.error('网络搜索错误:', error);
+        // 如果DuckDuckGo不可用，尝试使用备用方案
+        return await performBackupSearch(query);
+      }
+    }
+    
+    // 备用搜索方案
+    async function performBackupSearch(query) {
+      try {
+        // 使用Wikipedia API作为备用搜索
+        const wikiUrl = `https://zh.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(query)}`;
+        
+        const response = await fetch(wikiUrl, {
+          method: 'GET',
+          mode: 'cors'
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          if (data.extract) {
+            return `Wikipedia摘要：${data.extract}`;
+          }
+        }
+        
+        return '联网搜索暂时不可用，将基于已有知识回答您的问题。';
+        
+      } catch (error) {
+        console.error('备用搜索错误:', error);
+        return '联网搜索暂时不可用，将基于已有知识回答您的问题。';
+      }
+    }
+    
+    // 发送消息
+    async function sendMessage() {
+      if (!messageInput) return;
+      
+      const message = messageInput.value.trim();
+      if (!message) return;
+      
+      // 定义超时定时器变量
+      let timeoutId;
+      
+      // 检查是否开启了联网搜索
+      const webAccessEnabled = document.getElementById('webAccessToggle')?.checked || false;
+      let finalMessage = message;
+      
+      // 如果开启了联网搜索，先进行搜索
+      if (webAccessEnabled && webSearchEnabled) {
+        // 显示搜索状态
+        const searchingId = 'searching-' + Date.now();
+        addLoadingMessage(searchingId);
+        
+        try {
+          const searchResults = await performWebSearch(message);
+          removeLoadingMessage(searchingId);
+          
+          // 将搜索结果添加到消息中
+          finalMessage = `用户问题：${message}\n\n最新网络信息：\n${searchResults}\n\n请基于以上最新信息回答用户的问题。`;
+          
+        } catch (error) {
+          removeLoadingMessage(searchingId);
+          console.error('搜索失败:', error);
+        }
+      }
+      
+      // 添加用户消息到对话历史（使用原始消息）
+      addToConversationHistory('user', message);
+      
+      // 添加用户消息到对话（显示原始消息）
+      const userMessageId = 'user-message-' + Date.now();
+      addMessageToChat(message, 'user', userMessageId);
+      
+      // 清空输入框
+      messageInput.value = '';
+      messageInput.style.height = '50px';
+      
+      // 添加加载状态消息
+      try {
+        // 创建AI消息容器
+        const aiMessageId = 'ai-message-' + Date.now();
+        addStreamingMessage(aiMessageId);
+        
+        // 生成AI回复（流式），使用包含搜索结果的消息
+        await generateAIResponseStreaming(finalMessage, aiMessageId);
+      } catch (error) {
+        // 添加错误消息
+        const errorMsg = '抱歉，生成回复时出现错误，请稍后重试。';
+        const errorMessageId = 'ai-error-' + Date.now();
+        addMessageToChat(errorMsg, 'ai', errorMessageId);
+        addToConversationHistory('assistant', errorMsg);
+        console.error('发送消息错误:', error);
+      } finally {
+        // 重置联网搜索状态
+        if (webSearchEnabled) {
+          webSearchEnabled = false;
+          webSearchBtn.classList.remove('bg-primary/10', 'text-primary');
+        }
+      }
+    }
+    
+    // 添加消息到对话历史
+    function addToConversationHistory(role, content) {
+      // 添加新消息到历史记录
+      conversationHistory.push({
+        role: role,
+        content: content
+      });
+      
+      // 如果历史记录超过最大长度，删除最早的对话（保留系统消息）
+      if (conversationHistory.length > MAX_HISTORY_LENGTH) {
+        // 找到第一个非系统消息的索引
+        let firstNonSystemIndex = conversationHistory.findIndex(msg => msg.role !== 'system');
+        if (firstNonSystemIndex === -1) firstNonSystemIndex = 0;
+        
+        // 删除最早的用户-助手对话
+        conversationHistory.splice(firstNonSystemIndex, 2);
+      }
+    }
+    
+    // 获取完整的对话历史（包含系统提示）
+    function getFullConversationHistory() {
+      const systemMessage = {
+        role: 'system',
+        content: '你是一个有用的AI助手，请用中文回答问题。'
+      };
+      
+      return [systemMessage, ...conversationHistory];
+    }
+    
+    // Markdown渲染函数
+    function renderMarkdown(text) {
+      const settings = JSON.parse(localStorage.getItem('chatSettings') || '{}');
+      const markdownEnabled = settings.markdownRender !== false; // 默认启用
+      
+      if (!markdownEnabled || typeof marked === 'undefined') {
+        return text.replace(/\n/g, '<br>');
+      }
+      
+      try {
+        // 配置marked选项
+        marked.setOptions({
+          breaks: true,          // 支持换行符转换为<br>
+          gfm: true,            // 启用GitHub风格Markdown
+          sanitize: false,      // 不清理HTML（由DOMPurify处理）
+          smartLists: true,     // 智能列表处理
+          smartypants: true,    // 智能标点符号转换
+          xhtml: false,         // 不使用XHTML格式
+          headerIds: false,     // 不生成标题ID
+          mangle: false,        // 不混淆邮箱地址
+          pedantic: false,      // 不使用严格模式
+          silent: false         // 不静默错误
+        });
+        
+        // 自定义渲染器以处理特殊符号
+        const renderer = new marked.Renderer();
+        
+        // 处理代码块
+        renderer.code = function(code, language) {
+          const validLang = language && language.match(/^[a-zA-Z0-9_+-]*$/) ? language : '';
+          const codeId = 'code-' + Math.random().toString(36).substr(2, 9);
+          const escapedCode = code.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+          return `<div class="code-block-container relative">
+            <div class="code-block-header flex justify-between items-center bg-gray-100 px-3 py-2 text-sm text-gray-600 border-b">
+              <span class="code-language">${validLang || 'text'}</span>
+              <button class="copy-code-btn flex items-center gap-1 px-2 py-1 text-xs bg-gray-200 hover:bg-gray-300 rounded transition-colors" onclick="copyCodeBlock('${codeId}')" title="复制代码">
+                <i class="fa fa-copy"></i>
+                <span>复制</span>
+              </button>
+            </div>
+            <pre><code id="${codeId}" class="language-${validLang}" data-raw-code="${code.replace(/"/g, '&quot;')}">${escapedCode}</code></pre>
+          </div>`;
+        };
+        
+        // 处理行内代码
+        renderer.codespan = function(code) {
+          return `<code>${code}</code>`;
+        };
+        
+        // 处理链接
+        renderer.link = function(href, title, text) {
+          const titleAttr = title ? ` title="${title}"` : '';
+          return `<a href="${href}"${titleAttr} target="_blank" rel="noopener noreferrer">${text}</a>`;
+        };
+        
+        // 处理表格
+        renderer.table = function(header, body) {
+          return `<table class="markdown-table">
+<thead>
+${header}</thead>
+<tbody>
+${body}</tbody>
+</table>`;
+        };
+        
+        // 处理删除线
+        renderer.del = function(text) {
+          return `<del>${text}</del>`;
+        };
+        
+        // 处理强调文本
+        renderer.strong = function(text) {
+          return `<strong>${text}</strong>`;
+        };
+        
+        renderer.em = function(text) {
+          return `<em>${text}</em>`;
+        };
+        
+        marked.setOptions({ renderer });
+        
+        let html = marked.parse(text);
+        
+        // 使用DOMPurify清理HTML（如果可用）
+        if (typeof DOMPurify !== 'undefined') {
+          html = DOMPurify.sanitize(html, {
+            ALLOWED_TAGS: ['p', 'br', 'strong', 'b', 'em', 'i', 'u', 's', 'del', 'strike', 
+                          'code', 'pre', 'blockquote', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 
+                          'ul', 'ol', 'li', 'a', 'table', 'thead', 'tbody', 'tr', 'th', 'td', 
+                          'hr', 'img', 'div', 'span', 'mark', 'kbd', 'sub', 'sup', 'button'],
+            ALLOWED_ATTR: ['href', 'title', 'target', 'rel', 'src', 'alt', 'class', 'id', 'style', 'onclick'],
+            KEEP_CONTENT: true,
+            ALLOW_DATA_ATTR: false
+          });
+        }
+        
+        return html;
+      } catch (error) {
+        console.error('Markdown渲染错误:', error);
+        return text.replace(/\n/g, '<br>');
+      }
+    }
+    
+
+
+    // 添加消息到对话
+    function addMessageToChat(message, sender, messageId = null) {
+      if (!chatContainer) return;
+      
+      // 如果没有提供messageId，生成一个
+      if (!messageId) {
+        messageId = sender + '-message-' + Date.now();
+      }
+      
+      const messageDiv = document.createElement('div');
+      messageDiv.className = `flex items-start gap-3 animate-fade-in`;
+      messageDiv.id = messageId;
+      
+      let avatar, bgColor;
+      
+      if (sender === 'user') {
+        avatar = getUserAvatar();
+        bgColor = 'bg-primary text-white';
+        messageDiv.classList.add('justify-end');
+      } else {
+        avatar = getAIAvatar();
+        bgColor = 'bg-white';
+      }
+      
+      // 渲染消息内容
+      const renderedMessage = sender === 'ai' ? renderMarkdown(message) : message.replace(/\n/g, '<br>');
+      const contentClass = sender === 'ai' ? 'markdown-content' : '';
+      
+      messageDiv.innerHTML = `
+        ${sender === 'ai' ? avatar : ''}
+        <div class="flex flex-col">
+          <div class="${bgColor} rounded-2xl px-4 py-3 shadow-sm ${sender === 'user' ? 'min-w-[120px]' : 'max-w-[85%]'}" ${sender === 'ai' ? 'style="max-width: min(85%, 800px);"' : ''}>
+            <div class="${sender === 'user' ? 'text-white' : 'text-neutral-800'} ${contentClass} message-bubble ${sender === 'user' ? 'user-message' : 'ai-message'}">${renderedMessage}</div>
+            ${sender === 'ai' && webSearchEnabled ? `
+              <div class="mt-3 pt-3 border-t border-neutral-100 flex items-center gap-2 text-xs text-neutral-500">
+                <i class="fa fa-search"></i>
+                <span>此回复基于最新网络信息</span>
+              </div>
+            ` : ''}
+          </div>
+          ${sender === 'ai' ? `
+            <div class="flex items-center gap-2 mt-2 ml-2">
+              <button class="action-btn p-1.5 rounded-full hover:bg-neutral-100 transition-colors text-neutral-500 hover:text-neutral-700" title="重新生成" onclick="regenerateMessage('${messageId}')">
+                <i class="fa fa-refresh text-xs"></i>
+              </button>
+              <button class="action-btn p-1.5 rounded-full hover:bg-neutral-100 transition-colors text-neutral-500 hover:text-neutral-700" title="复制" onclick="copyMessage('${messageId}')">
+                <i class="fa fa-copy text-xs"></i>
+              </button>
+              <button class="action-btn p-1.5 rounded-full hover:bg-neutral-100 transition-colors text-neutral-500 hover:text-neutral-700" title="收藏" onclick="favoriteMessage('${messageId}')">
+                <i class="fa fa-heart-o text-xs"></i>
+              </button>
+            </div>
+          ` : ''}
+        </div>
+        ${sender === 'user' ? avatar : ''}
+      `;
+      
+      chatContainer.appendChild(messageDiv);
+      
+      // 滚动到底部
+      window.scrollTo({
+        top: document.body.scrollHeight,
+        behavior: 'smooth'
+      });
+    }
+    
+    // 添加流式消息容器
+    function addStreamingMessage(messageId) {
+      if (!chatContainer) return;
+      
+      const messageDiv = document.createElement('div');
+      messageDiv.id = messageId;
+      messageDiv.className = 'flex items-start gap-3 animate-fade-in';
+      
+      messageDiv.innerHTML = `
+        ${getAIAvatar()}
+        <div class="flex flex-col">
+          <div class="bg-white rounded-2xl px-4 py-3 shadow-sm max-w-[85%] min-w-[120px]" style="max-width: min(85%, 800px);">
+            <p class="text-neutral-800 message-bubble ai-message" id="${messageId}-content">
+              <span class="typing-cursor"></span>
+            </p>
+          </div>
+        </div>
+      `;
+      
+      chatContainer.appendChild(messageDiv);
+      
+      // 滚动到底部
+      window.scrollTo({
+        top: document.body.scrollHeight,
+        behavior: 'smooth'
+      });
+    }
+    
+    // 字符级别的平滑渲染效果
+    let renderQueue = new Map(); // 存储每个消息的渲染队列
+    
+    function smoothRenderText(messageId, targetText, currentText = '', speed = 30) {
+      const contentElement = document.getElementById(`${messageId}-content`);
+      if (!contentElement) return;
+      
+      // 如果目标文本没有变化，直接返回
+      if (targetText === currentText) {
+        return;
+      }
+      
+      // 清除之前的渲染队列
+      if (renderQueue.has(messageId)) {
+        clearTimeout(renderQueue.get(messageId));
+      }
+      
+      // 计算需要添加的字符
+      const nextLength = Math.min(currentText.length + Math.ceil(Math.random() * 3) + 1, targetText.length);
+      const newText = targetText.substring(0, nextLength);
+      
+      // 渲染当前文本
+      const renderedContent = renderMarkdown(content);
+                contentElement.innerHTML = renderedContent + '<span class="typing-cursor">⚡</span>';
+      contentElement.className = 'text-neutral-800 markdown-content';
+      
+      // 如果还有更多内容需要渲染
+      if (newText.length < targetText.length) {
+        const timeoutId = setTimeout(() => {
+          smoothRenderText(messageId, targetText, newText, speed);
+        }, speed + Math.random() * 20); // 添加随机延迟模拟真实打字
+        
+        renderQueue.set(messageId, timeoutId);
+      } else {
+        // 渲染完成，移除光标
+        contentElement.innerHTML = renderedContent;
+        renderQueue.delete(messageId);
+      }
+    }
+    
+    // 获取当前模型的渲染配置
+    function getModelRenderConfig() {
+      const modelVersion = document.getElementById('modelVersion')?.value || '';
+      const modelProvider = document.getElementById('modelSelect')?.value || 'openai';
+      
+      // 根据模型类型返回不同的渲染配置
+      if (modelVersion.includes('kimi') || modelProvider === 'moonshot') {
+        return { updateThreshold: 1, reasoningThreshold: 5, scrollDelay: 3 }; // Kimi模型优化：更频繁更新，减少卡顿
+      } else if (modelVersion.includes('qwen3') || modelVersion.includes('qwen') || modelProvider === 'ali') {
+        return { updateThreshold: 6, reasoningThreshold: 12, scrollDelay: 10 }; // Qwen模型
+      } else if (modelVersion.includes('deepseek') || modelVersion.includes('reasoner')) {
+        return { updateThreshold: 8, reasoningThreshold: 15, scrollDelay: 12 }; // DeepSeek推理模型
+      } else if (modelVersion.includes('claude') || modelProvider === 'anthropic') {
+        return { updateThreshold: 6, reasoningThreshold: 12, scrollDelay: 10 }; // Claude模型
+      } else {
+        return { updateThreshold: 10, reasoningThreshold: 20, scrollDelay: 16 }; // 默认配置
+      }
+    }
+    
+    // 更新流式消息内容
+    function updateStreamingMessage(messageId, content, isComplete = false, isWebSearchResult = false, reasoningContent = '', isReasonerModel = false) {
+      const contentElement = document.getElementById(`${messageId}-content`);
+      if (contentElement) {
+        // 获取当前模型的渲染配置
+        const renderConfig = getModelRenderConfig();
+        
+        // 缓存上次的内容，避免不必要的DOM更新
+        const lastContent = contentElement.getAttribute('data-last-content') || '';
+        const currentContent = content + (reasoningContent || '');
+        
+        // 如果内容没有变化且不是完成状态，跳过更新
+        if (!isComplete && lastContent === currentContent) {
+          return;
+        }
+        
+        // 更新缓存的内容
+        contentElement.setAttribute('data-last-content', currentContent);
+        
+        // 使用 requestAnimationFrame 优化渲染性能，并添加节流
+        if (contentElement._updatePending) return;
+        contentElement._updatePending = true;
+        
+        requestAnimationFrame(() => {
+          contentElement._updatePending = false;
+        
+        if (isComplete) {
+          const messageDivComplete = document.getElementById(messageId);
+          if (messageDivComplete) {
+            // 处理推理内容容器
+             let reasoningContainer = messageDivComplete.querySelector('.reasoning-container');
+            if (isReasonerModel && reasoningContent) {
+              if (!reasoningContainer) {
+                reasoningContainer = document.createElement('div');
+                reasoningContainer.className = 'reasoning-container mb-3';
+                reasoningContainer.innerHTML = `
+                <div class="reasoning-section bg-blue-50 border-l-4 border-blue-400 p-4 rounded-r-lg">
+                  <div class="flex items-center justify-between mb-2 text-blue-800">
+                    <div class="flex items-center gap-2">
+                      <i class="fa fa-lightbulb-o"></i>
+                      <span class="font-medium">AI 思考过程</span>
+                    </div>
+                    <button class="reasoning-toggle-btn p-1 rounded hover:bg-blue-100 transition-colors" onclick="toggleReasoning(this)">
+                      <i class="fa fa-chevron-up text-xs"></i>
+                    </button>
+                  </div>
+                  <div class="reasoning-content text-blue-700 text-sm whitespace-pre-wrap"></div>
+                </div>
+              `;
+                contentElement.parentNode.insertBefore(reasoningContainer, contentElement);
+              }
+              // 更新推理内容并渲染Markdown
+              const reasoningContentDiv = reasoningContainer.querySelector('.reasoning-content');
+              if (reasoningContentDiv) {
+                reasoningContentDiv.innerHTML = renderMarkdown(reasoningContent);
+                
+                // 推理过程完成后自动收起
+                setTimeout(() => {
+                  const toggleBtn = reasoningContainer.querySelector('.reasoning-toggle-btn');
+                  if (toggleBtn) {
+                    const toggleIcon = toggleBtn.querySelector('i');
+                    reasoningContentDiv.style.display = 'none';
+                    toggleIcon.className = 'fa fa-chevron-down text-xs';
+                    reasoningContainer.querySelector('.reasoning-section').style.maxHeight = '60px';
+                  }
+                }, 500); // 延迟500ms后自动收起
+              }
+            }
+          }
+          
+          // 完成时渲染正式回答的Markdown，确保移除打字机光标
+          if (renderQueue.has(messageId)) {
+            clearTimeout(renderQueue.get(messageId));
+            renderQueue.delete(messageId);
+          }
+          
+          // 强制移除所有光标元素
+          const existingCursors = contentElement.querySelectorAll('.typing-cursor');
+          existingCursors.forEach(cursor => cursor.remove());
+          
+          // 使用DocumentFragment减少DOM重排
+          const fragment = document.createDocumentFragment();
+          const tempDiv = document.createElement('div');
+          tempDiv.innerHTML = renderMarkdown(content);
+          
+          // 批量更新DOM
+          contentElement.innerHTML = '';
+          while (tempDiv.firstChild) {
+            fragment.appendChild(tempDiv.firstChild);
+          }
+          contentElement.appendChild(fragment);
+          contentElement.className = 'text-neutral-800 markdown-content';
+          contentElement.setAttribute('data-displayed-text', content);
+          
+          // 再次确保没有光标残留
+          setTimeout(() => {
+            const remainingCursors = contentElement.querySelectorAll('.typing-cursor');
+            remainingCursors.forEach(cursor => cursor.remove());
+          }, 100);
+          
+          // 将AI回复添加到对话历史
+          addToConversationHistory('assistant', content);
+          
+          // 添加按钮到消息容器
+          const messageDiv = document.getElementById(messageId);
+          if (messageDiv) {
+            // 查找flex容器（消息气泡的父容器）
+            const flexContainer = messageDiv.querySelector('.flex.flex-col');
+            if (flexContainer) {
+              // 检查是否已经有网络搜索标识
+              const existingWebIndicator = flexContainer.querySelector('.web-search-indicator');
+              if (!existingWebIndicator && isWebSearchResult) {
+                // 添加网络搜索标识
+                const webIndicatorDiv = document.createElement('div');
+                webIndicatorDiv.className = 'mt-3 pt-3 border-t border-neutral-100 flex items-center gap-2 text-xs text-neutral-500 web-search-indicator';
+                webIndicatorDiv.innerHTML = `
+                  <i class="fa fa-search"></i>
+                  <span>此回复基于最新网络信息</span>
+                `;
+                
+                // 将网络搜索标识添加到消息气泡中
+                const messageBubble = flexContainer.querySelector('.bg-white.rounded-2xl');
+                if (messageBubble) {
+                  messageBubble.appendChild(webIndicatorDiv);
+                }
+              }
+              
+              // 检查是否已经有按钮容器
+              const existingButtons = flexContainer.querySelector('.action-buttons');
+              if (!existingButtons) {
+                // 创建按钮容器
+                const buttonsDiv = document.createElement('div');
+                buttonsDiv.className = 'flex items-center gap-2 mt-2 ml-2 action-buttons';
+                buttonsDiv.innerHTML = `
+                  <button class="action-btn p-1.5 rounded-full hover:bg-neutral-100 transition-colors text-neutral-500 hover:text-neutral-700" title="重新生成" onclick="regenerateMessage('${messageId}')">
+                    <i class="fa fa-refresh text-xs"></i>
+                  </button>
+                  <button class="action-btn p-1.5 rounded-full hover:bg-neutral-100 transition-colors text-neutral-500 hover:text-neutral-700" title="复制" onclick="copyMessage('${messageId}')">
+                    <i class="fa fa-copy text-xs"></i>
+                  </button>
+                  <button class="action-btn p-1.5 rounded-full hover:bg-neutral-100 transition-colors text-neutral-500 hover:text-neutral-700" title="收藏" onclick="favoriteMessage('${messageId}')">
+                    <i class="fa fa-heart-o text-xs"></i>
+                  </button>
+                `;
+                
+                // 将按钮容器添加到flex容器中
+                flexContainer.appendChild(buttonsDiv);
+              }
+            }
+          }
+        } else {
+          // 流式输出时分别处理推理内容和正式回答
+          const messageDiv = document.getElementById(messageId);
+          if (messageDiv) {
+            // 查找或创建推理内容容器
+            let reasoningContainer = messageDiv.querySelector('.reasoning-container');
+            if (isReasonerModel && reasoningContent && !reasoningContainer) {
+              reasoningContainer = document.createElement('div');
+              reasoningContainer.className = 'reasoning-container mb-3';
+              reasoningContainer.innerHTML = `
+                <div class="reasoning-section bg-blue-50 border-l-4 border-blue-400 p-4 rounded-r-lg">
+                  <div class="flex items-center justify-between mb-2 text-blue-800">
+                    <div class="flex items-center gap-2">
+                      <i class="fa fa-lightbulb-o"></i>
+                      <span class="font-medium">AI 思考过程</span>
+                    </div>
+                    <button class="reasoning-toggle-btn p-1 rounded hover:bg-blue-100 transition-colors" onclick="toggleReasoning(this)">
+                      <i class="fa fa-chevron-up text-xs"></i>
+                    </button>
+                  </div>
+                  <div class="reasoning-content text-blue-700 text-sm whitespace-pre-wrap"></div>
+                </div>
+              `;
+              // 将推理容器插入到内容容器之前
+              contentElement.parentNode.insertBefore(reasoningContainer, contentElement);
+            }
+            
+            // 优化推理内容更新，减少频繁操作
+             if (isReasonerModel && reasoningContent && reasoningContainer) {
+               const reasoningContentDiv = reasoningContainer.querySelector('.reasoning-content');
+               if (reasoningContentDiv) {
+                 const lastReasoningContent = reasoningContentDiv.getAttribute('data-last-reasoning') || '';
+                 const lengthDiff = Math.abs(reasoningContent.length - lastReasoningContent.length);
+                 // 根据模型类型调整推理内容更新阈值
+                  if (lengthDiff > renderConfig.reasoningThreshold || lastReasoningContent === '') {
+                   reasoningContentDiv.textContent = reasoningContent;
+                   reasoningContentDiv.setAttribute('data-last-reasoning', reasoningContent);
+                 }
+               }
+             }
+            
+            // 优化流式渲染，减少重复的Markdown解析
+            const currentDisplayedText = contentElement.getAttribute('data-displayed-text') || '';
+            if (content !== currentDisplayedText) {
+              contentElement.setAttribute('data-displayed-text', content);
+              
+              // 智能渲染：根据模型类型调整渲染阈值
+              const lengthDiff = Math.abs(content.length - currentDisplayedText.length);
+              const modelVersion = document.getElementById('modelVersion')?.value || '';
+              const modelProvider = document.getElementById('modelSelect')?.value || 'openai';
+              const isKimiModel = modelVersion.includes('kimi') || modelProvider === 'moonshot';
+              
+              // Kimi模型使用更激进的实时渲染策略
+              if (isKimiModel || lengthDiff > renderConfig.updateThreshold || content.includes('```') || content.includes('**') || content.includes('*')) {
+                // Kimi模型或包含格式化内容时进行完整渲染
+                const renderedContent = renderMarkdown(content);
+                contentElement.innerHTML = renderedContent + '<span class="typing-cursor">⚡</span>';
+              } else {
+                // 其他模型使用简单文本追加，避免重复渲染
+                const textNode = document.createTextNode(content.slice(currentDisplayedText.length));
+                const cursor = contentElement.querySelector('.typing-cursor');
+                if (cursor) {
+                  contentElement.insertBefore(textNode, cursor);
+                } else {
+                  contentElement.appendChild(textNode);
+                  contentElement.innerHTML += '<span class="typing-cursor">⚡</span>';
+                }
+              }
+              contentElement.className = 'text-neutral-800 markdown-content';
+            }
+          }
+        }
+        
+        }); // 结束 requestAnimationFrame
+        
+        // 根据模型类型优化滚动性能
+        clearTimeout(window.scrollTimeout);
+        window.scrollTimeout = setTimeout(() => {
+          window.scrollTo({
+            top: document.body.scrollHeight,
+            behavior: 'smooth'
+          });
+        }, renderConfig.scrollDelay); // 使用自适应滚动延迟
+      }
+    }
+    
+    // 添加加载消息
+    function addLoadingMessage(messageId) {
+      if (!chatContainer) return;
+      
+      const loadingDiv = document.createElement('div');
+      loadingDiv.id = messageId;
+      loadingDiv.className = 'flex items-start gap-3 animate-fade-in';
+      
+      loadingDiv.innerHTML = `
+        <div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-white flex-shrink-0">
+          <i class="fa fa-robot"></i>
+        </div>
+        <div class="bg-white rounded-2xl px-4 py-3 shadow-sm max-w-[85%] min-w-[120px]" style="max-width: min(85%, 800px);">
+          <div class="flex items-center gap-2 text-neutral-600">
+            <div class="flex gap-1">
+              <div class="w-2 h-2 bg-neutral-400 rounded-full animate-bounce" style="animation-delay: 0ms"></div>
+              <div class="w-2 h-2 bg-neutral-400 rounded-full animate-bounce" style="animation-delay: 150ms"></div>
+              <div class="w-2 h-2 bg-neutral-400 rounded-full animate-bounce" style="animation-delay: 300ms"></div>
+            </div>
+            <span class="text-sm">AI正在思考...</span>
+          </div>
+        </div>
+      `;
+      
+      chatContainer.appendChild(loadingDiv);
+      
+      // 滚动到底部
+      window.scrollTo({
+        top: document.body.scrollHeight,
+        behavior: 'smooth'
+      });
+    }
+    
+    // 移除加载消息
+    function removeLoadingMessage(messageId) {
+      const loadingMessage = document.getElementById(messageId);
+      if (loadingMessage) {
+        loadingMessage.remove();
+      }
+    }
+    
+    // 生成AI回复（流式）
+    async function generateAIResponseStreaming(userMessage, messageId) {
+      // 获取用户设置
+      const settings = JSON.parse(localStorage.getItem('chatSettings') || '{}');
+      const apiKey = settings.apiKey || document.getElementById('apiKey')?.value;
+      let baseUrl = settings.baseUrl || document.getElementById('apiBaseUrl')?.value;
+      const modelProvider = settings.model || document.getElementById('modelSelect')?.value || 'openai';
+      const modelVersion = settings.modelVersion || getActualModelVersion();
+      const temperature = parseFloat(settings.temperature || document.getElementById('temperature')?.value || 0.7);
+      const maxTokens = parseInt(settings.maxTokens || document.getElementById('maxTokens')?.value || 2048);
+      const requestTimeout = parseInt(settings.requestTimeout || document.getElementById('requestTimeout')?.value || 180) * 1000; // 转换为毫秒，Kimi模型使用180秒超时
+      
+      // 根据模型提供商设置默认的baseUrl
+      if (!baseUrl) {
+        switch(modelProvider) {
+          case 'deepseek':
+            baseUrl = 'https://api.deepseek.com';
+            break;
+          case 'openai':
+            baseUrl = 'https://api.openai.com';
+            break;
+          case 'anthropic':
+            baseUrl = 'https://api.anthropic.com';
+            break;
+          case 'google':
+            baseUrl = 'https://generativelanguage.googleapis.com';
+            break;
+          case 'xai':
+            baseUrl = 'https://api.x.ai';
+            break;
+          case 'mistral':
+            baseUrl = 'https://api.mistral.ai';
+            break;
+          case 'cohere':
+            baseUrl = 'https://api.cohere.ai';
+            break;
+          case 'perplexity':
+            baseUrl = 'https://api.perplexity.ai';
+            break;
+          case 'together':
+            baseUrl = 'https://api.together.xyz';
+            break;
+          case 'groq':
+            baseUrl = 'https://api.groq.com';
+            break;
+          case 'fireworks':
+            baseUrl = 'https://api.fireworks.ai';
+            break;
+          case 'baidu':
+            baseUrl = 'https://aip.baidubce.com';
+            break;
+          case 'ali':
+            baseUrl = 'https://dashscope.aliyuncs.com/compatible-mode/v1';
+            break;
+          case 'tencent':
+            baseUrl = 'https://hunyuan.tencentcloudapi.com';
+            break;
+          case 'zhipu':
+            baseUrl = 'https://open.bigmodel.cn';
+            break;
+          case 'moonshot':
+            baseUrl = 'https://api.moonshot.cn';
+            break;
+          case 'minimax':
+            baseUrl = 'https://api.minimax.chat';
+            break;
+          default:
+            baseUrl = 'https://api.openai.com';
+        }
+      }
+      
+      // 如果没有配置API密钥，显示提示信息
+      if (!apiKey) {
+        updateStreamingMessage(messageId, '请先在设置中配置API密钥，然后重新发送消息。', true);
+        return;
+      }
+      
+      try {
+        // 根据不同提供商构建不同的endpoint
+        let endpoint;
+        if (modelProvider === 'deepseek') {
+          endpoint = baseUrl.endsWith('/') ? baseUrl + 'chat/completions' : baseUrl + '/chat/completions';
+        } else {
+          endpoint = baseUrl.endsWith('/') ? baseUrl + 'v1/chat/completions' : baseUrl + '/v1/chat/completions';
+        }
+        
+        // 构建消息数组
+        let messages;
+        if (userMessage.includes('最新网络信息：')) {
+          // 如果包含搜索结果，使用特殊的消息结构
+          const systemMessage = {
+            role: 'system',
+            content: '你是一个有用的AI助手，请用中文回答问题。当用户提供了最新网络信息时，请优先基于这些信息来回答问题，并在回答中明确表明这是基于最新信息的回复。'
+          };
+          messages = [systemMessage, { role: 'user', content: userMessage }];
+        } else {
+          // 正常情况下使用完整对话历史
+          messages = getFullConversationHistory();
+        }
+        
+        // 创建AbortController用于超时控制
+        const abortController = new AbortController();
+        const timeoutId = setTimeout(() => {
+          abortController.abort();
+        }, requestTimeout);
+        
+        const response = await fetch(endpoint, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+          },
+          body: JSON.stringify({
+            model: modelVersion,
+            messages: messages,
+            temperature: temperature,
+            max_tokens: maxTokens,
+            stream: true,
+            // Qwen3模型特殊参数支持
+            ...(modelVersion.includes('qwen3') && modelProvider === 'ali' ? {
+              extra_body: { enable_thinking: false }
+            } : {})
+          }),
+          // 添加超时和错误处理配置
+          signal: abortController.signal,
+          mode: 'cors',
+          credentials: 'omit'
+        });
+        
+        // 清除超时定时器
+        clearTimeout(timeoutId);
+        
+        if (!response.ok) {
+          throw new Error(`API请求失败: ${response.status} ${response.statusText}`);
+        }
+        
+        // 处理流式响应
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let fullResponse = '';
+        let reasoningContent = '';
+        const isWebSearchResult = userMessage.includes('最新网络信息：');
+        const isReasonerModel = modelVersion.includes('reasoner');
+        
+        // Kimi模型专用：逐字输出缓冲机制
+        let characterBuffer = '';
+        let lastUpdateTime = 0;
+        const isKimiModel = modelVersion.includes('kimi') || modelProvider === 'moonshot';
+        // Kimi模型使用逐字输出，其他模型保持原有节流
+        const updateThrottle = isKimiModel ? 100 : 50; // Kimi模型使用100ms间隔进行逐字输出
+        
+        // Kimi模型专用：添加连接监控
+        let lastDataTime = Date.now();
+        const kimiTimeout = isKimiModel ? 10000 : 30000; // Kimi模型使用更短的超时时间
+        
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          
+          // 更新最后接收数据的时间
+          lastDataTime = Date.now();
+          
+          const chunk = decoder.decode(value);
+          const lines = chunk.split('\n');
+          
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              const data = line.slice(6);
+              if (data === '[DONE]') {
+                updateStreamingMessage(messageId, fullResponse, true, isWebSearchResult, reasoningContent, isReasonerModel);
+                return;
+              }
+              
+              try {
+                const parsed = JSON.parse(data);
+                if (parsed.choices && parsed.choices[0] && parsed.choices[0].delta) {
+                  let shouldUpdate = false;
+                  // 处理普通内容
+                  if (parsed.choices[0].delta.content) {
+                    if (isKimiModel) {
+                      // Kimi模型：将新内容添加到字符缓冲区
+                      characterBuffer += parsed.choices[0].delta.content;
+                    } else {
+                      // 其他模型：直接添加到完整响应
+                      fullResponse += parsed.choices[0].delta.content;
+                      shouldUpdate = true;
+                    }
+                  }
+                  // 处理推理内容（deepseek-reasoner 特有）
+                  if (parsed.choices[0].delta.reasoning_content) {
+                    reasoningContent += parsed.choices[0].delta.reasoning_content;
+                    shouldUpdate = true;
+                  }
+                  
+                  // Kimi模型专用逐字输出处理
+                  if (isKimiModel && characterBuffer.length > 0) {
+                    const currentTime = Date.now();
+                    if (currentTime - lastUpdateTime >= updateThrottle) {
+                      // 从缓冲区取出一个字符进行输出
+                      const nextChar = characterBuffer.charAt(0);
+                      characterBuffer = characterBuffer.slice(1);
+                      fullResponse += nextChar;
+                      
+                      updateStreamingMessage(messageId, fullResponse, false, isWebSearchResult, reasoningContent, isReasonerModel);
+                      lastUpdateTime = currentTime;
+                      
+                      // 如果缓冲区还有内容，继续处理
+                      if (characterBuffer.length > 0) {
+                        setTimeout(() => {
+                          // 递归处理剩余字符
+                          const processNextChar = () => {
+                            if (characterBuffer.length > 0) {
+                              const char = characterBuffer.charAt(0);
+                              characterBuffer = characterBuffer.slice(1);
+                              fullResponse += char;
+                              updateStreamingMessage(messageId, fullResponse, false, isWebSearchResult, reasoningContent, isReasonerModel);
+                              
+                              if (characterBuffer.length > 0) {
+                                setTimeout(processNextChar, updateThrottle);
+                              }
+                            }
+                          };
+                          processNextChar();
+                        }, updateThrottle);
+                      }
+                    }
+                  }
+                  
+                  // 其他模型的更新逻辑
+                  if (!isKimiModel && shouldUpdate) {
+                    const currentTime = Date.now();
+                    if (currentTime - lastUpdateTime >= updateThrottle) {
+                      updateStreamingMessage(messageId, fullResponse, false, isWebSearchResult, reasoningContent, isReasonerModel);
+                      lastUpdateTime = currentTime;
+                    } else {
+                      // 延迟更新
+                      setTimeout(() => {
+                        updateStreamingMessage(messageId, fullResponse, false, isWebSearchResult, reasoningContent, isReasonerModel);
+                      }, updateThrottle - (currentTime - lastUpdateTime));
+                    }
+                  }
+                }
+              } catch (e) {
+                // 忽略解析错误
+              }
+            }
+          }
+        }
+        
+        // Kimi模型：确保缓冲区剩余字符全部输出
+        if (isKimiModel && characterBuffer.length > 0) {
+          fullResponse += characterBuffer;
+          characterBuffer = '';
+        }
+        
+        // 确保最终状态是完成的，强制进行最后一次更新
+        updateStreamingMessage(messageId, fullResponse || '抱歉，未能获取到完整回复。', true, isWebSearchResult, reasoningContent, isReasonerModel);
+        
+      } catch (error) {
+        console.error('API调用错误:', error);
+        
+        // 清除超时定时器
+        clearTimeout(timeoutId);
+        
+        // Kimi模型：确保缓冲区剩余字符全部输出
+        if (isKimiModel && characterBuffer.length > 0) {
+          fullResponse += characterBuffer;
+          characterBuffer = '';
+        }
+        
+        let errorMessage;
+        // 根据不同错误类型提供具体的解决方案
+        if (error.name === 'AbortError') {
+          errorMessage = `请求超时：连接API服务超过${requestTimeout/1000}秒。请检查网络连接或稍后重试。`;
+        } else if (error.message.includes('SSL') || error.message.includes('certificate') || error.message.includes('CERT')) {
+          errorMessage = `SSL证书错误：无法建立安全连接到API服务。\n\n可能的解决方案：\n1. 检查系统时间是否正确\n2. 尝试使用不同的网络环境\n3. 联系网络管理员检查防火墙设置\n4. 如果使用代理，请检查代理配置`;
+        } else if (error.name === 'TypeError' && error.message.includes('fetch')) {
+          errorMessage = `网络连接错误：无法连接到API服务。\n\n可能的原因：\n1. 网络连接不稳定\n2. API服务暂时不可用\n3. 防火墙或代理阻止了请求\n4. DNS解析问题\n\n建议：请检查网络连接后重试。`;
+        } else if (error.message.includes('CORS')) {
+          errorMessage = `跨域请求错误：浏览器安全策略阻止了API调用。\n\n解决方案：\n1. 使用支持CORS的API端点\n2. 配置服务器允许跨域请求\n3. 使用代理服务器转发请求`;
+        } else {
+          // 针对Kimi模型的特殊错误处理
+          if (isKimiModel) {
+            errorMessage = `Kimi模型调用失败：${error.message}\n\n针对Kimi模型的解决方案：\n1. 检查API密钥是否正确配置\n2. 确认网络连接稳定\n3. 如果出现输出中断，请重新发送消息\n4. 建议降低temperature参数值\n5. 尝试减少单次对话的长度\n\n如果问题持续存在，请稍后重试或联系技术支持。`;
+          } else {
+            errorMessage = `API调用失败：${error.message}\n\n请检查：\n1. API密钥是否正确\n2. 网络连接是否正常\n3. API服务是否可用\n\n如果问题持续存在，请稍后重试。`;
+          }
+        }
+        
+        // 强制移除所有光标元素
+        const allCursors = document.querySelectorAll('.typing-cursor');
+        allCursors.forEach(cursor => cursor.remove());
+        
+        updateStreamingMessage(messageId, errorMessage, true, false, '', false);
+        
+        // 延迟检查，确保没有残留的光标
+        setTimeout(() => {
+          const remainingCursors = document.querySelectorAll('.typing-cursor');
+          remainingCursors.forEach(cursor => cursor.remove());
+        }, 100);
+      }
+    }
+    
+    // 生成AI回复（非流式，保留作为备用）
+    async function generateAIResponse(userMessage) {
+      // 获取用户设置
+      const settings = JSON.parse(localStorage.getItem('chatSettings') || '{}');
+      const apiKey = settings.apiKey || document.getElementById('apiKey')?.value;
+      let baseUrl = settings.baseUrl || document.getElementById('apiBaseUrl')?.value;
+      const modelProvider = settings.model || document.getElementById('modelSelect')?.value || 'openai';
+      const modelVersion = settings.modelVersion || getActualModelVersion();
+      const temperature = parseFloat(settings.temperature || document.getElementById('temperature')?.value || 0.7);
+      const maxTokens = parseInt(settings.maxTokens || document.getElementById('maxTokens')?.value || 2048);
+      
+      // 根据模型提供商设置默认的baseUrl
+      if (!baseUrl) {
+        switch(modelProvider) {
+          case 'deepseek':
+            baseUrl = 'https://api.deepseek.com';
+            break;
+          case 'openai':
+            baseUrl = 'https://api.openai.com';
+            break;
+          case 'anthropic':
+            baseUrl = 'https://api.anthropic.com';
+            break;
+          case 'google':
+            baseUrl = 'https://generativelanguage.googleapis.com';
+            break;
+          case 'xai':
+            baseUrl = 'https://api.x.ai';
+            break;
+          case 'mistral':
+            baseUrl = 'https://api.mistral.ai';
+            break;
+          case 'cohere':
+            baseUrl = 'https://api.cohere.ai';
+            break;
+          case 'perplexity':
+            baseUrl = 'https://api.perplexity.ai';
+            break;
+          case 'together':
+            baseUrl = 'https://api.together.xyz';
+            break;
+          case 'groq':
+            baseUrl = 'https://api.groq.com';
+            break;
+          case 'fireworks':
+            baseUrl = 'https://api.fireworks.ai';
+            break;
+          case 'baidu':
+            baseUrl = 'https://aip.baidubce.com';
+            break;
+          case 'ali':
+            baseUrl = 'https://dashscope.aliyuncs.com/compatible-mode/v1';
+            break;
+          case 'tencent':
+            baseUrl = 'https://hunyuan.tencentcloudapi.com';
+            break;
+          case 'zhipu':
+            baseUrl = 'https://open.bigmodel.cn';
+            break;
+          case 'moonshot':
+            baseUrl = 'https://api.moonshot.cn';
+            break;
+          case 'minimax':
+            baseUrl = 'https://api.minimax.chat';
+            break;
+          default:
+            baseUrl = 'https://api.openai.com';
+        }
+      }
+      
+      // 如果没有配置API密钥，返回提示信息
+      if (!apiKey) {
+        return '请先在设置中配置API密钥，然后重新发送消息。';
+      }
+      
+      try {
+        // 根据不同提供商构建不同的endpoint
+        let endpoint;
+        if (modelProvider === 'deepseek') {
+          endpoint = baseUrl.endsWith('/') ? baseUrl + 'chat/completions' : baseUrl + '/chat/completions';
+        } else {
+          endpoint = baseUrl.endsWith('/') ? baseUrl + 'v1/chat/completions' : baseUrl + '/v1/chat/completions';
+        }
+        
+        // 创建AbortController用于超时控制
+        const abortController = new AbortController();
+        const timeoutId = setTimeout(() => {
+          abortController.abort();
+        }, requestTimeout);
+        
+        const response = await fetch(endpoint, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+          },
+          body: JSON.stringify({
+            model: modelVersion,
+            messages: getFullConversationHistory(),
+            temperature: temperature,
+            max_tokens: maxTokens,
+            stream: false,
+            // Qwen3模型特殊参数支持
+            ...(modelVersion.includes('qwen3') && modelProvider === 'ali' ? {
+              extra_body: { enable_thinking: false }
+            } : {})
+          }),
+          // 添加超时和错误处理配置
+          signal: abortController.signal,
+          mode: 'cors',
+          credentials: 'omit'
+        });
+        
+        // 清除超时定时器
+        clearTimeout(timeoutId);
+        
+        if (!response.ok) {
+          throw new Error(`API请求失败: ${response.status} ${response.statusText}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data.choices && data.choices.length > 0) {
+          return data.choices[0].message.content;
+        } else {
+          throw new Error('API返回数据格式错误');
+        }
+        
+      } catch (error) {
+        console.error('API调用错误:', error);
+        
+        // 清除超时定时器
+        clearTimeout(timeoutId);
+        
+        // 根据不同错误类型提供具体的解决方案
+        if (error.name === 'AbortError') {
+          return `请求超时：连接API服务超过${requestTimeout/1000}秒。请检查网络连接或稍后重试。`;
+        } else if (error.message.includes('SSL') || error.message.includes('certificate') || error.message.includes('CERT')) {
+          return `SSL证书错误：无法建立安全连接到API服务。\n\n可能的解决方案：\n1. 检查系统时间是否正确\n2. 尝试使用不同的网络环境\n3. 联系网络管理员检查防火墙设置\n4. 如果使用代理，请检查代理配置`;
+        } else if (error.name === 'TypeError' && error.message.includes('fetch')) {
+          return `网络连接错误：无法连接到API服务。\n\n可能的原因：\n1. 网络连接不稳定\n2. API服务暂时不可用\n3. 防火墙或代理阻止了请求\n4. DNS解析问题\n\n建议：请检查网络连接后重试。`;
+        } else if (error.message.includes('CORS')) {
+          return `跨域请求错误：浏览器安全策略阻止了API调用。\n\n解决方案：\n1. 使用支持CORS的API端点\n2. 配置服务器允许跨域请求\n3. 使用代理服务器转发请求`;
+        } else {
+          return `API调用失败：${error.message}\n\n请检查：\n1. API密钥是否正确\n2. 网络连接是否正常\n3. API服务是否可用\n\n如果问题持续存在，请稍后重试。`;
+        }
+      }
+    }
+    
+    // 标签页切换功能
+    function switchSettingsTab(tabName) {
+      // 移除所有标签的激活状态
+      settingsTabs.forEach(tab => {
+        tab.classList.remove('bg-primary', 'text-white');
+        tab.classList.add('text-neutral-600', 'hover:text-neutral-800');
+      });
+      
+      // 隐藏所有内容
+      settingsContents.forEach(content => {
+        content.classList.add('hidden');
+      });
+      
+      // 激活选中的标签
+      const activeTab = document.querySelector(`[data-tab="${tabName}"]`);
+      if (activeTab) {
+        activeTab.classList.add('bg-primary', 'text-white');
+        activeTab.classList.remove('text-neutral-600', 'hover:text-neutral-800');
+      }
+      
+      // 显示对应内容
+      const activeContent = document.getElementById(`${tabName}Tab`);
+      if (activeContent) {
+        activeContent.classList.remove('hidden');
+      }
+    }
+    
+    // 通知系统
+    function showNotification(message, type = 'info') {
+      const notification = document.createElement('div');
+      notification.className = `fixed top-4 right-4 z-50 px-6 py-4 rounded-xl shadow-lg animate-slide-up`;
+      
+      switch (type) {
+        case 'success':
+          notification.classList.add('bg-green-500', 'text-white');
+          break;
+        case 'error':
+          notification.classList.add('bg-red-500', 'text-white');
+          break;
+        case 'warning':
+          notification.classList.add('bg-yellow-500', 'text-white');
+          break;
+        default:
+          notification.classList.add('bg-blue-500', 'text-white');
+      }
+      
+      notification.innerHTML = `
+        <div class="flex items-center gap-2">
+          <i class="fa fa-${type === 'success' ? 'check' : type === 'error' ? 'times' : type === 'warning' ? 'exclamation' : 'info'}-circle"></i>
+          <span>${message}</span>
+        </div>
+      `;
+      
+      document.body.appendChild(notification);
+      
+      // 3秒后自动移除
+      setTimeout(() => {
+        notification.remove();
+      }, 3000);
+    }
+    
+    // 设置管理
+    function saveAllSettings() {
+      const settings = {
+        model: document.getElementById('modelSelect')?.value || 'openai',
+        modelVersion: getActualModelVersion(),
+        apiKey: document.getElementById('apiKey')?.value || '',
+        baseUrl: document.getElementById('apiBaseUrl')?.value || '',
+        temperature: document.getElementById('temperature')?.value || 0.7,
+        maxTokens: document.getElementById('maxTokens')?.value || 2048,
+        webAccess: document.getElementById('webAccess')?.checked || false,
+        autoToolCalling: document.getElementById('autoToolCalling')?.checked || false,
+        voiceInput: document.getElementById('voiceInput')?.checked || false,
+        markdownRender: document.getElementById('markdownToggle')?.checked || true,
+        darkMode: document.getElementById('darkMode')?.checked || false,
+        animations: document.getElementById('animations')?.checked || true,
+        quickReplies: document.getElementById('quickReplies')?.checked || true,
+        requestTimeout: document.getElementById('requestTimeout')?.value || 30,
+        maxRetries: document.getElementById('maxRetries')?.value || 3,
+        historyLimit: document.getElementById('historyLimit')?.value || 100,
+        debugMode: document.getElementById('debugMode')?.checked || false,
+        apiLogging: document.getElementById('apiLogging')?.checked || false
+      };
+      
+      localStorage.setItem('chatSettings', JSON.stringify(settings));
+    }
+    
+    function resetAllSettings() {
+      localStorage.removeItem('chatSettings');
+      location.reload();
+    }
+    
+    function loadSettings() {
+      const savedSettings = localStorage.getItem('chatSettings');
+      if (savedSettings) {
+        const settings = JSON.parse(savedSettings);
+        
+        // 应用保存的设置
+        Object.keys(settings).forEach(key => {
+          const element = document.getElementById(key);
+          if (element) {
+            if (element.type === 'checkbox') {
+              element.checked = settings[key];
+            } else {
+              element.value = settings[key];
+            }
+          }
+        });
+      }
+    }
+    
+    // 聊天记录管理
+    function clearChatHistory() {
+      if (!chatContainer) return;
+      
+      // 清空对话历史记录
+      conversationHistory = [];
+      
+      chatContainer.innerHTML = `
+        <div class="text-center py-12 animate-fade-in">
+          <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-primary/10 flex items-center justify-center">
+            <i class="fa fa-comments text-2xl text-primary"></i>
+          </div>
+          <h2 class="text-xl font-semibold text-neutral-800 mb-2">欢迎使用智能助手</h2>
+          <p class="text-neutral-600 mb-6">我可以帮您解答问题、处理任务，让我们开始对话吧！</p>
+          
+          <div class="flex flex-wrap gap-2 justify-center mb-8">
+            <span class="px-3 py-1 bg-primary/10 text-primary rounded-full text-sm">💡 创意灵感</span>
+            <span class="px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm">📝 文案写作</span>
+            <span class="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm">🔍 信息查询</span>
+            <span class="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-sm">🧮 数据分析</span>
+          </div>
+          
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl mx-auto">
+            <div class="p-4 border border-neutral-200 rounded-xl hover:border-primary/30 transition-colors cursor-pointer" onclick="fillQuickMessage('帮我写一份工作总结')">
+              <div class="flex items-center gap-3 mb-2">
+                <i class="fa fa-lightbulb-o text-yellow-500"></i>
+                <span class="font-medium text-neutral-800">创意启发</span>
+              </div>
+              <p class="text-sm text-neutral-600">帮我写一份工作总结</p>
+            </div>
+            
+            <div class="p-4 border border-neutral-200 rounded-xl hover:border-primary/30 transition-colors cursor-pointer" onclick="fillQuickMessage('解释一下机器学习的基本概念')">
+              <div class="flex items-center gap-3 mb-2">
+                <i class="fa fa-graduation-cap text-blue-500"></i>
+                <span class="font-medium text-neutral-800">学习指导</span>
+              </div>
+              <p class="text-sm text-neutral-600">解释一下机器学习的基本概念</p>
+            </div>
+            
+            <div class="p-4 border border-neutral-200 rounded-xl hover:border-primary/30 transition-colors cursor-pointer" onclick="fillQuickMessage('帮我分析这组数据的趋势')">
+              <div class="flex items-center gap-3 mb-2">
+                <i class="fa fa-bar-chart text-green-500"></i>
+                <span class="font-medium text-neutral-800">数据分析</span>
+              </div>
+              <p class="text-sm text-neutral-600">帮我分析这组数据的趋势</p>
+            </div>
+            
+            <div class="p-4 border border-neutral-200 rounded-xl hover:border-primary/30 transition-colors cursor-pointer" onclick="fillQuickMessage('有什么问题我都可以帮您解答')">
+              <div class="flex items-center gap-3 mb-2">
+                <i class="fa fa-question-circle text-purple-500"></i>
+                <span class="font-medium text-neutral-800">通用问答</span>
+              </div>
+              <p class="text-sm text-neutral-600">有什么问题我都可以帮您解答</p>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+    
+    function exportChatHistory() {
+      if (!chatContainer) return;
+      
+      const messages = Array.from(chatContainer.children).map(msg => {
+        const text = msg.querySelector('p')?.textContent || '';
+        const isUser = msg.classList.contains('justify-end');
+        return {
+          sender: isUser ? 'user' : 'ai',
+          message: text,
+          timestamp: new Date().toISOString()
+        };
+      });
+      
+      const dataStr = JSON.stringify(messages, null, 2);
+      const dataBlob = new Blob([dataStr], {type: 'application/json'});
+      const url = URL.createObjectURL(dataBlob);
+      
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `chat-history-${new Date().toISOString().split('T')[0]}.json`;
+      link.click();
+      
+      URL.revokeObjectURL(url);
+      showNotification('聊天记录已导出', 'success');
+    }
+    
+    // 全屏功能
+    function toggleFullscreen() {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen();
+        if (fullscreenBtn) fullscreenBtn.innerHTML = '<i class="fa fa-compress"></i>';
+      } else {
+        document.exitFullscreen();
+        if (fullscreenBtn) fullscreenBtn.innerHTML = '<i class="fa fa-expand"></i>';
+      }
+    }
+    
+    // 附件处理
+    function handleAttachment() {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.multiple = true;
+      input.accept = '.txt,.pdf,.doc,.docx,.jpg,.png,.gif';
+      
+      input.onchange = (e) => {
+        const files = Array.from(e.target.files);
+        if (files.length > 0) {
+          showNotification(`已选择 ${files.length} 个文件`, 'info');
+          // 这里可以添加文件处理逻辑
+        }
+      };
+      
+      input.click();
+    }
+    
+    // 语音输入变量
+    let mediaRecorder = null;
+    let audioChunks = [];
+    let isRecording = false;
+    
+    // 语音输入
+    function toggleVoiceInput() {
+      if (isRecording) {
+        stopRecording();
+      } else {
+        startRecording();
+      }
+    }
+    
+    // 开始录音
+    function startRecording() {
+      navigator.mediaDevices.getUserMedia({ audio: true })
+        .then(stream => {
+          audioChunks = [];
+          mediaRecorder = new MediaRecorder(stream);
+          
+          mediaRecorder.ondataavailable = (event) => {
+            audioChunks.push(event.data);
+          };
+          
+          mediaRecorder.onstop = () => {
+            const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+            transcribeAudio(audioBlob);
+            stream.getTracks().forEach(track => track.stop());
+          };
+          
+          mediaRecorder.start();
+          isRecording = true;
+          
+          if (voiceBtn) voiceBtn.innerHTML = '<i class="fa fa-stop text-red-500"></i>';
+          showNotification('正在录音...', 'info');
+        })
+        .catch(error => {
+          console.error('获取麦克风权限失败:', error);
+          showNotification('无法访问麦克风，请检查权限设置', 'error');
+        });
+    }
+    
+    // 停止录音
+    function stopRecording() {
+      if (mediaRecorder && isRecording) {
+        mediaRecorder.stop();
+        isRecording = false;
+        
+        if (voiceBtn) voiceBtn.innerHTML = '<i class="fa fa-microphone"></i>';
+        showNotification('录音结束，正在转录...', 'info');
+      }
+    }
+    
+    // 音频转录
+    function transcribeAudio(audioBlob) {
+      const formData = new FormData();
+      formData.append('file', audioBlob, 'audio.wav');
+      formData.append('model', 'FunAudioLLM/SenseVoiceSmall');
+      
+      fetch('https://api.siliconflow.cn/v1/audio/transcriptions', {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer sk-rtambershukoehkbwyuzjgmchimiuvccavobzqzkiqdbzlxz'
+        },
+        body: formData
+      })
+      .then(response => {
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        return response.json();
+      })
+      .then(data => {
+        if (data.text) {
+          if (messageInput) messageInput.value = data.text;
+          showNotification('语音转录完成', 'success');
+        } else {
+          showNotification('转录结果为空', 'warning');
+        }
+      })
+      .catch(error => {
+        console.error('音频转录失败:', error);
+        showNotification('音频转录失败: ' + error.message, 'error');
+      });
+    }
+    
+    // 快速消息填充
+    function fillQuickMessage(message) {
+      if (!messageInput) return;
+      
+      messageInput.value = message;
+      messageInput.focus();
+    }
+    
+    // 密码可见性切换
+    function togglePasswordVisibility(inputId) {
+      const input = document.getElementById(inputId);
+      const button = input?.nextElementSibling;
+      const icon = button?.querySelector('i');
+      
+      if (!input || !icon) return;
+      
+      if (input.type === 'password') {
+        input.type = 'text';
+        icon.className = 'fa fa-eye-slash';
+      } else {
+        input.type = 'password';
+        icon.className = 'fa fa-eye';
+      }
+    }
+    
+    // API连接测试
+    function testAPIConnection() {
+      const apiKey = document.getElementById('apiKey')?.value;
+      const baseUrl = document.getElementById('apiBaseUrl')?.value;
+      const modelProvider = document.getElementById('modelSelect')?.value;
+      const modelVersion = getActualModelVersion();
+      
+      if (!apiKey) {
+        showNotification('请先输入API密钥', 'warning');
+        return;
+      }
+      
+      // 如果没有输入baseUrl，使用默认值
+      let finalBaseUrl = baseUrl;
+      if (!finalBaseUrl) {
+        switch(modelProvider) {
+          case 'deepseek':
+            finalBaseUrl = 'https://api.deepseek.com';
+            break;
+          case 'openai':
+            finalBaseUrl = 'https://api.openai.com';
+            break;
+          case 'anthropic':
+            finalBaseUrl = 'https://api.anthropic.com';
+            break;
+          case 'google':
+            finalBaseUrl = 'https://generativelanguage.googleapis.com';
+            break;
+          case 'xai':
+            finalBaseUrl = 'https://api.x.ai';
+            break;
+          case 'mistral':
+            finalBaseUrl = 'https://api.mistral.ai';
+            break;
+          case 'cohere':
+            finalBaseUrl = 'https://api.cohere.ai';
+            break;
+          case 'perplexity':
+            finalBaseUrl = 'https://api.perplexity.ai';
+            break;
+          case 'together':
+            finalBaseUrl = 'https://api.together.xyz';
+            break;
+          case 'groq':
+            finalBaseUrl = 'https://api.groq.com';
+            break;
+          case 'fireworks':
+            finalBaseUrl = 'https://api.fireworks.ai';
+            break;
+          case 'baidu':
+            finalBaseUrl = 'https://aip.baidubce.com';
+            break;
+          case 'ali':
+            finalBaseUrl = 'https://dashscope.aliyuncs.com/compatible-mode/v1';
+            break;
+          case 'tencent':
+            finalBaseUrl = 'https://hunyuan.tencentcloudapi.com';
+            break;
+          case 'zhipu':
+            finalBaseUrl = 'https://open.bigmodel.cn';
+            break;
+          case 'moonshot':
+            finalBaseUrl = 'https://api.moonshot.cn';
+            break;
+          case 'minimax':
+            finalBaseUrl = 'https://api.minimax.chat';
+            break;
+          default:
+            finalBaseUrl = 'https://api.openai.com';
+        }
+      }
+      
+      // 验证URL格式
+      try {
+        new URL(finalBaseUrl);
+      } catch (e) {
+        showNotification('基础URL格式不正确，请输入有效的URL', 'error');
+        return;
+      }
+      
+      showNotification('正在测试连接...', 'info');
+      
+      // 根据不同提供商构建不同的测试端点
+      let testEndpoint;
+      if (modelProvider === 'deepseek') {
+        testEndpoint = finalBaseUrl.endsWith('/') ? finalBaseUrl + 'models' : finalBaseUrl + '/models';
+      } else {
+        testEndpoint = finalBaseUrl.endsWith('/') ? finalBaseUrl + 'v1/models' : finalBaseUrl + '/v1/models';
+      }
+      
+      fetch(testEndpoint, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json'
+        }
+      })
+      .then(response => {
+        if (response.ok) {
+          showNotification(`连接成功！模型 ${modelVersion} 可正常使用`, 'success');
+        } else if (response.status === 401) {
+          showNotification('API密钥无效，请检查密钥是否正确', 'error');
+        } else if (response.status === 404) {
+          showNotification('API端点不存在，请检查基础URL', 'error');
+        } else {
+          showNotification(`连接失败：HTTP ${response.status}`, 'error');
+        }
+      })
+      .catch(error => {
+        // 由于CORS限制，可能会失败，提供备用验证
+        if (error.name === 'TypeError' && error.message.includes('fetch')) {
+          // 基本格式验证
+          if (apiKey.length < 10) {
+            showNotification('API密钥格式可能不正确（长度过短）', 'warning');
+          } else if (!baseUrl.startsWith('http')) {
+            showNotification('基础URL必须以http://或https://开头', 'error');
+          } else {
+            showNotification('连接测试完成，配置格式正确（可能受CORS限制影响实际连接测试）', 'success');
+          }
+        } else {
+          showNotification('连接测试失败：' + error.message, 'error');
+        }
+      });
+    }
+    
+    // 工具按钮事件监听
+    function addToolButtonListeners() {
+      // 等待DOM加载完成后再绑定事件
+      setTimeout(() => {
+        // 获取工具面板中的所有按钮
+        const toolButtons = document.querySelectorAll('#toolsPanel .p-2 button');
+        
+        toolButtons.forEach(button => {
+          const icon = button.querySelector('i');
+          const span = button.querySelector('span');
+          
+          if (!icon || !span) return;
+          
+          // 只保留代码解释器功能
+          if (icon.classList.contains('fa-code')) {
+            button.addEventListener('click', () => {
+              showToolResult('代码解释器', executeCodeInterpreter());
+              if (toolsPanel) toolsPanel.style.display = 'none';
+            });
+          }
+        });
+      }, 100);
+    }
+    
+    // 快捷回复按钮事件
+    function addQuickReplyListeners() {
+      const suggestionCards = document.querySelectorAll('.suggestion-card');
+      suggestionCards.forEach(card => {
+        card.addEventListener('click', () => {
+          const textElement = card.querySelector('p');
+          const text = textElement ? textElement.textContent.trim() : '';
+          if (messageInput && text) {
+            messageInput.value = text;
+            messageInput.focus();
+            // 自动发送快速回复消息
+            setTimeout(() => {
+              sendMessage();
+            }, 100);
+          }
+        });
+      });
+    }
+    
+    // 显示工具执行结果
+    function showToolResult(toolName, result) {
+      const toolResultPanel = document.getElementById('toolResultPanel');
+      const toolResultContent = document.getElementById('toolResultContent');
+      
+      if (toolResultPanel && toolResultContent) {
+        toolResultContent.innerHTML = result;
+        toolResultPanel.style.display = 'flex';
+      }
+    }
+    
+
+    
+    // 代码解释器工具执行
+    function executeCodeInterpreter() {
+      return `
+        <div class="space-y-4">
+          <div class="flex items-center gap-3 mb-4">
+            <div class="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center">
+              <i class="fa fa-code text-green-600"></i>
+            </div>
+            <div>
+              <h3 class="font-medium text-neutral-800">代码解释器</h3>
+              <p class="text-sm text-neutral-600">运行代码片段</p>
+            </div>
+          </div>
+          
+          <div class="bg-neutral-50 rounded-xl p-4 mb-4">
+            <p class="text-neutral-700 font-medium mb-2">代码输入：</p>
+            <textarea id="codeInput" placeholder="输入JavaScript代码..." class="w-full h-32 px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 font-mono text-sm"></textarea>
+            <button onclick="executeCode()" class="mt-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">运行代码</button>
+          </div>
+          
+          <div id="codeResult" class="border border-neutral-200 rounded-xl p-4">
+            <p class="text-neutral-700 font-medium mb-2">执行结果：</p>
+            <pre class="bg-neutral-800 text-green-400 p-3 rounded-lg text-sm font-mono">等待代码执行...</pre>
+          </div>
+        </div>
+      `;
+    }
+    
+
+    
+    // 初始化
+    function init() {
+      initEventListeners();
+      loadSettings();
+      // 默认显示模型配置标签页
+      switchSettingsTab('model');
+      
+      // 添加工具按钮事件
+      addToolButtonListeners();
+      
+      // 添加快捷回复事件
+      addQuickReplyListeners();
+      
+      // 连接测试按钮
+      const testConnectionBtn = document.getElementById('testConnection');
+      if (testConnectionBtn) {
+        testConnectionBtn.addEventListener('click', testAPIConnection);
+      }
+      
+      // 保存模型配置按钮
+      const saveModelConfigBtn = document.getElementById('saveModelConfig');
+      if (saveModelConfigBtn) {
+        saveModelConfigBtn.addEventListener('click', () => {
+          saveAllSettings();
+          showNotification('模型配置已保存', 'success');
+        });
+      }
+    }
+    
+    // 工具执行函数
+    
+    function executeCode() {
+      const input = document.getElementById('codeInput');
+      const result = document.getElementById('codeResult');
+      
+      if (!input || !result) return;
+      
+      const code = input.value.trim();
+      if (!code) {
+        result.innerHTML = `
+          <p class="text-neutral-700 font-medium mb-2">执行结果：</p>
+          <pre class="bg-neutral-800 text-red-400 p-3 rounded-lg text-sm font-mono">请输入代码</pre>
+        `;
+        return;
+      }
+      
+      try {
+        // 重定向console.log输出
+        let output = '';
+        const originalLog = console.log;
+        console.log = (...args) => {
+          output += args.join(' ') + '\n';
+        };
+        
+        // 执行代码
+        const execResult = Function(code)();
+        
+        // 恢复console.log
+        console.log = originalLog;
+        
+        let displayResult = output || (execResult !== undefined ? String(execResult) : '代码执行完成');
+        
+        result.innerHTML = `
+          <p class="text-neutral-700 font-medium mb-2">执行结果：</p>
+          <pre class="bg-neutral-800 text-green-400 p-3 rounded-lg text-sm font-mono">${displayResult}</pre>
+        `;
+      } catch (error) {
+        result.innerHTML = `
+          <p class="text-neutral-700 font-medium mb-2">执行结果：</p>
+          <pre class="bg-neutral-800 text-red-400 p-3 rounded-lg text-sm font-mono">错误：${error.message}</pre>
+        `;
+      }
+    }
+    
+
+
+    
+    // 消息操作函数
+    function regenerateMessage(messageId) {
+      const messageElement = document.getElementById(messageId);
+      if (!messageElement) return;
+      
+      // 从对话历史中找到对应的AI回复索引
+      let aiMessageIndex = -1;
+      for (let i = conversationHistory.length - 1; i >= 0; i--) {
+        if (conversationHistory[i].role === 'assistant') {
+          aiMessageIndex = i;
+          break;
+        }
+      }
+      
+      if (aiMessageIndex === -1) {
+        showNotification('无法找到对应的消息记录', 'error');
+        return;
+      }
+      
+      // 找到对应的用户消息（应该在AI消息之前）
+      let userMessage = '';
+      for (let i = aiMessageIndex - 1; i >= 0; i--) {
+        if (conversationHistory[i].role === 'user') {
+          userMessage = conversationHistory[i].content;
+          break;
+        }
+      }
+      
+      if (!userMessage) {
+        showNotification('无法找到对应的用户消息', 'error');
+        return;
+      }
+      
+      // 移除当前AI消息和对话历史中的记录
+      messageElement.remove();
+      conversationHistory.splice(aiMessageIndex, 1);
+      
+      showNotification('正在重新生成回复...', 'info');
+      
+      // 重新生成AI回复
+      const newMessageId = 'ai-message-' + Date.now();
+      addStreamingMessage(newMessageId);
+      
+      // 调用AI生成函数
+      generateAIResponseStreaming(userMessage, newMessageId).then(() => {
+        showNotification('回复已重新生成', 'success');
+      }).catch((error) => {
+        console.error('重新生成失败:', error);
+        showNotification('重新生成失败，请稍后重试', 'error');
+        // 移除失败的消息容器
+        const failedElement = document.getElementById(newMessageId);
+        if (failedElement) {
+          failedElement.remove();
+        }
+      });
+    }
+    
+    function copyMessage(messageId) {
+      const messageElement = document.getElementById(messageId);
+      if (!messageElement) return;
+      
+      const contentElement = messageElement.querySelector('.markdown-content');
+      if (!contentElement) return;
+      
+      // 获取纯文本内容
+      const textContent = contentElement.innerText || contentElement.textContent;
+      
+      // 复制到剪贴板
+      navigator.clipboard.writeText(textContent).then(() => {
+        showNotification('消息已复制到剪贴板', 'success');
+        
+        // 临时改变按钮图标
+        const copyBtn = messageElement.querySelector('[onclick*="copyMessage"] i');
+        if (copyBtn) {
+          const originalClass = copyBtn.className;
+          copyBtn.className = 'fa fa-check text-xs';
+          setTimeout(() => {
+            copyBtn.className = originalClass;
+          }, 2000);
+        }
+      }).catch(() => {
+        showNotification('复制失败，请手动选择文本', 'error');
+      });
+    }
+    
+    function copyCodeBlock(codeId) {
+      const codeElement = document.getElementById(codeId);
+      if (!codeElement) return;
+      
+      // 获取代码内容
+      const codeContent = codeElement.textContent || codeElement.innerText;
+      
+      // 复制到剪贴板
+      navigator.clipboard.writeText(codeContent).then(() => {
+        showNotification('代码已复制到剪贴板', 'success');
+        
+        // 临时改变按钮文本和图标
+        const copyBtn = codeElement.closest('.code-block-container').querySelector('.copy-code-btn');
+        if (copyBtn) {
+          const originalHTML = copyBtn.innerHTML;
+          copyBtn.innerHTML = '<i class="fa fa-check"></i><span>已复制</span>';
+          copyBtn.classList.add('bg-green-200', 'text-green-700');
+          copyBtn.classList.remove('bg-gray-200', 'hover:bg-gray-300');
+          
+          setTimeout(() => {
+            copyBtn.innerHTML = originalHTML;
+            copyBtn.classList.remove('bg-green-200', 'text-green-700');
+            copyBtn.classList.add('bg-gray-200', 'hover:bg-gray-300');
+          }, 2000);
+        }
+      }).catch(() => {
+        showNotification('复制失败，请手动选择代码', 'error');
+      });
+    }
+    
+    function favoriteMessage(messageId) {
+      const messageElement = document.getElementById(messageId);
+      if (!messageElement) return;
+      
+      const favoriteBtn = messageElement.querySelector('[onclick*="favoriteMessage"] i');
+      if (!favoriteBtn) return;
+      
+      // 切换收藏状态
+      const isFavorited = favoriteBtn.classList.contains('fa-heart');
+      
+      if (isFavorited) {
+        favoriteBtn.className = 'fa fa-heart-o text-xs';
+        showNotification('已取消收藏', 'info');
+      } else {
+        favoriteBtn.className = 'fa fa-heart text-xs';
+        favoriteBtn.style.color = '#ef4444';
+        showNotification('已添加到收藏', 'success');
+        
+        // 保存到本地存储
+        const contentElement = messageElement.querySelector('.markdown-content');
+        if (contentElement) {
+          const favorites = JSON.parse(localStorage.getItem('favoriteMessages') || '[]');
+          favorites.push({
+            id: messageId,
+            content: contentElement.innerText || contentElement.textContent,
+            timestamp: Date.now()
+          });
+          localStorage.setItem('favoriteMessages', JSON.stringify(favorites));
+        }
+      }
+    }
+    
+    // 推理过程展开/收起功能
+    function toggleReasoning(button) {
+      const reasoningSection = button.closest('.reasoning-section');
+      if (!reasoningSection) return;
+      
+      const reasoningContent = reasoningSection.querySelector('.reasoning-content');
+      const toggleIcon = button.querySelector('i');
+      
+      if (!reasoningContent || !toggleIcon) return;
+      
+      const isCollapsed = reasoningContent.style.display === 'none';
+      
+      if (isCollapsed) {
+        // 展开
+        reasoningContent.style.display = 'block';
+        toggleIcon.className = 'fa fa-chevron-up text-xs';
+        reasoningSection.style.maxHeight = 'none';
+      } else {
+        // 收起
+        reasoningContent.style.display = 'none';
+        toggleIcon.className = 'fa fa-chevron-down text-xs';
+        reasoningSection.style.maxHeight = '60px';
+      }
+    }
+    
+    // 头像相关函数
+    function getUserAvatar() {
+      const settings = JSON.parse(localStorage.getItem('chatSettings') || '{}');
+      const userAvatarUrl = settings.userAvatarUrl;
+      
+      if (userAvatarUrl) {
+        return `<div class="w-8 h-8 rounded-full bg-neutral-200 flex items-center justify-center text-neutral-700 flex-shrink-0 overflow-hidden">
+                  <img src="${userAvatarUrl}" alt="用户头像" class="w-full h-full object-cover" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                  <i class="fa fa-user" style="display:none;"></i>
+                </div>`;
+      } else {
+        return `<div class="w-8 h-8 rounded-full bg-neutral-200 flex items-center justify-center text-neutral-700 flex-shrink-0">
+                  <i class="fa fa-user"></i>
+                </div>`;
+      }
+    }
+    
+    function getAIAvatar() {
+      const settings = JSON.parse(localStorage.getItem('chatSettings') || '{}');
+      const currentModel = settings.model || document.getElementById('modelSelect')?.value || 'openai';
+      const aiAvatars = settings.aiAvatars || {};
+      const avatarUrl = aiAvatars[currentModel];
+      
+      if (avatarUrl) {
+        // 检查是否是emoji
+        if (avatarUrl.length <= 4 && /[\u{1F600}-\u{1F64F}]|[\u{1F300}-\u{1F5FF}]|[\u{1F680}-\u{1F6FF}]|[\u{1F1E0}-\u{1F1FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]/u.test(avatarUrl)) {
+          return `<div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-white flex-shrink-0 text-lg">
+                    ${avatarUrl}
+                  </div>`;
+        } else {
+          return `<div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-white flex-shrink-0 overflow-hidden">
+                    <img src="${avatarUrl}" alt="AI头像" class="w-full h-full object-cover" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                    <i class="fa fa-robot" style="display:none;"></i>
+                  </div>`;
+        }
+      } else {
+        return `<div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-white flex-shrink-0">
+                  <i class="fa fa-robot"></i>
+                </div>`;
+      }
+    }
+    
+    function updateAvatarPreview() {
+      const userAvatarUrl = document.getElementById('userAvatarUrl').value;
+      const aiAvatarUrl = document.getElementById('aiAvatarUrl').value;
+      const userPreview = document.getElementById('userAvatarPreview');
+      const aiPreview = document.getElementById('aiAvatarPreview');
+      
+      // 更新用户头像预览
+      if (userAvatarUrl) {
+        userPreview.innerHTML = `<img src="${userAvatarUrl}" alt="用户头像" class="w-full h-full object-cover rounded-full" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                <i class="fa fa-user" style="display:none;"></i>`;
+      } else {
+        userPreview.innerHTML = '<i class="fa fa-user"></i>';
+      }
+      
+      // 更新AI头像预览
+      if (aiAvatarUrl) {
+        if (aiAvatarUrl.length <= 4 && /[\u{1F600}-\u{1F64F}]|[\u{1F300}-\u{1F5FF}]|[\u{1F680}-\u{1F6FF}]|[\u{1F1E0}-\u{1F1FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]/u.test(aiAvatarUrl)) {
+          aiPreview.innerHTML = aiAvatarUrl;
+          aiPreview.className = 'w-12 h-12 rounded-full bg-primary flex items-center justify-center text-white flex-shrink-0 text-xl';
+        } else {
+          aiPreview.innerHTML = `<img src="${aiAvatarUrl}" alt="AI头像" class="w-full h-full object-cover rounded-full" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                <i class="fa fa-robot" style="display:none;"></i>`;
+          aiPreview.className = 'w-12 h-12 rounded-full bg-primary flex items-center justify-center text-white flex-shrink-0 overflow-hidden';
+        }
+      } else {
+        aiPreview.innerHTML = '<i class="fa fa-robot"></i>';
+        aiPreview.className = 'w-12 h-12 rounded-full bg-primary flex items-center justify-center text-white flex-shrink-0';
+      }
+    }
+    
+    function loadAvatarSettings() {
+      const settings = JSON.parse(localStorage.getItem('chatSettings') || '{}');
+      const userAvatarUrl = settings.userAvatarUrl || '';
+      const aiAvatars = settings.aiAvatars || {};
+      const currentModel = document.getElementById('avatarModelSelect').value;
+      
+      document.getElementById('userAvatarUrl').value = userAvatarUrl;
+      document.getElementById('aiAvatarUrl').value = aiAvatars[currentModel] || '';
+      
+      updateAvatarPreview();
+    }
+    
+    function saveAvatarSettings() {
+      const settings = JSON.parse(localStorage.getItem('chatSettings') || '{}');
+      const userAvatarUrl = document.getElementById('userAvatarUrl').value;
+      const aiAvatarUrl = document.getElementById('aiAvatarUrl').value;
+      const currentModel = document.getElementById('avatarModelSelect').value;
+      
+      settings.userAvatarUrl = userAvatarUrl;
+      if (!settings.aiAvatars) settings.aiAvatars = {};
+      settings.aiAvatars[currentModel] = aiAvatarUrl;
+      
+      localStorage.setItem('chatSettings', JSON.stringify(settings));
+      updateAvatarPreview();
+      showNotification('头像设置已保存', 'success');
+    }
+    
+    function resetUserAvatar() {
+      document.getElementById('userAvatarUrl').value = '';
+      saveAvatarSettings();
+    }
+    
+    function resetAiAvatar() {
+      document.getElementById('aiAvatarUrl').value = '';
+      saveAvatarSettings();
+    }
+    
+    function handleFileUpload(inputId, isUser = true) {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'image/*';
+      input.onchange = function(e) {
+        const file = e.target.files[0];
+        if (file) {
+          const reader = new FileReader();
+          reader.onload = function(e) {
+            const dataUrl = e.target.result;
+            if (isUser) {
+              document.getElementById('userAvatarUrl').value = dataUrl;
+            } else {
+              document.getElementById('aiAvatarUrl').value = dataUrl;
+            }
+            saveAvatarSettings();
+          };
+          reader.readAsDataURL(file);
+        }
+      };
+      input.click();
+    }
+    
+    function setPresetAvatar(emoji) {
+      document.getElementById('aiAvatarUrl').value = emoji;
+      saveAvatarSettings();
+    }
+    
+    // 代码块复制功能
+    function copyCodeBlock(codeId) {
+      const codeElement = document.getElementById(codeId);
+      if (!codeElement) return;
+      
+      // 优先使用 data-raw-code 属性中的原始代码
+      const rawCode = codeElement.getAttribute('data-raw-code');
+      const textToCopy = rawCode || codeElement.textContent;
+      
+      navigator.clipboard.writeText(textToCopy).then(() => {
+        // 显示复制成功提示
+        const button = codeElement.closest('.code-block-container').querySelector('.copy-code-btn');
+        const originalText = button.innerHTML;
+        button.innerHTML = '<i class="fa fa-check"></i><span>已复制</span>';
+        button.classList.add('bg-green-200', 'text-green-800');
+        
+        setTimeout(() => {
+          button.innerHTML = originalText;
+          button.classList.remove('bg-green-200', 'text-green-800');
+        }, 2000);
+      }).catch(err => {
+        console.error('复制失败:', err);
+        showNotification('复制失败', 'error');
+      });
+    }
+    
+
+    
+    // 启动应用
+    document.addEventListener('DOMContentLoaded', init);
+    
+    // 自定义模型名称功能
+    function handleModelVersionChange() {
+      const modelVersion = document.getElementById('modelVersion');
+      const customModelInput = document.getElementById('customModelInput');
+      
+      if (modelVersion && customModelInput) {
+        if (modelVersion.value === 'custom') {
+          customModelInput.classList.remove('hidden');
+          document.getElementById('customModelName').focus();
+        } else {
+          customModelInput.classList.add('hidden');
+        }
+      }
+    }
+    
+    // 获取实际使用的模型名称
+    function getActualModelVersion() {
+      const modelVersion = document.getElementById('modelVersion')?.value;
+      if (modelVersion === 'custom') {
+        return document.getElementById('customModelName')?.value || 'gpt-3.5-turbo';
+      }
+      return modelVersion || 'gpt-3.5-turbo';
+    }
+    
+    // 头像相关事件监听
+    document.addEventListener('DOMContentLoaded', function() {
+      // 模型版本选择变化监听
+      const modelVersionSelect = document.getElementById('modelVersion');
+      if (modelVersionSelect) {
+        modelVersionSelect.addEventListener('change', handleModelVersionChange);
+      }
+      
+      // 头像URL输入框变化监听
+      const userAvatarUrl = document.getElementById('userAvatarUrl');
+      const aiAvatarUrl = document.getElementById('aiAvatarUrl');
+      const avatarModelSelect = document.getElementById('avatarModelSelect');
+      
+      if (userAvatarUrl) {
+        userAvatarUrl.addEventListener('input', updateAvatarPreview);
+        userAvatarUrl.addEventListener('blur', saveAvatarSettings);
+      }
+      
+      if (aiAvatarUrl) {
+        aiAvatarUrl.addEventListener('input', updateAvatarPreview);
+        aiAvatarUrl.addEventListener('blur', saveAvatarSettings);
+      }
+      
+      if (avatarModelSelect) {
+        avatarModelSelect.addEventListener('change', loadAvatarSettings);
+      }
+      
+      // 上传按钮事件
+      const uploadUserAvatar = document.getElementById('uploadUserAvatar');
+      const uploadAiAvatar = document.getElementById('uploadAiAvatar');
+      const resetUserAvatarBtn = document.getElementById('resetUserAvatar');
+      const resetAiAvatarBtn = document.getElementById('resetAiAvatar');
+      
+      if (uploadUserAvatar) {
+        uploadUserAvatar.addEventListener('click', () => handleFileUpload('userAvatarUrl', true));
+      }
+      
+      if (uploadAiAvatar) {
+        uploadAiAvatar.addEventListener('click', () => handleFileUpload('aiAvatarUrl', false));
+      }
+      
+      if (resetUserAvatarBtn) {
+        resetUserAvatarBtn.addEventListener('click', resetUserAvatar);
+      }
+      
+      if (resetAiAvatarBtn) {
+        resetAiAvatarBtn.addEventListener('click', resetAiAvatar);
+      }
+      
+      // 预设头像点击事件
+      const presetAvatars = document.querySelectorAll('.preset-avatar');
+      presetAvatars.forEach(btn => {
+        btn.addEventListener('click', function() {
+          const emoji = this.getAttribute('data-avatar');
+          setPresetAvatar(emoji);
+        });
+      });
+      
+      // 初始化头像设置
+      setTimeout(() => {
+        if (document.getElementById('avatarModelSelect')) {
+          loadAvatarSettings();
+        }
+      }, 100);
+    });
+  </script>
+</body>
+</html>
