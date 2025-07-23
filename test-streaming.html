@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>实时流式渲染测试</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+        }
+        
+        .demo-section {
+            margin-bottom: 40px;
+            padding: 20px;
+            border: 2px solid #e0e0e0;
+            border-radius: 15px;
+            background: #f9f9f9;
+        }
+        
+        .demo-title {
+            font-size: 1.3em;
+            color: #555;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .demo-content {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            border: 1px solid #ddd;
+            min-height: 100px;
+            font-size: 16px;
+            line-height: 1.6;
+        }
+        
+        .typing-cursor {
+            display: inline-block;
+            color: #3B82F6;
+            font-weight: bold;
+            margin-left: 2px;
+            font-size: 1.1em;
+            animation: blink 1s infinite;
+        }
+        
+        @keyframes blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0; }
+        }
+        
+        .control-panel {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        
+        button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 500;
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+        
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .speed-control {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        input[type="range"] {
+            width: 150px;
+        }
+        
+        .markdown-content {
+            color: #333;
+        }
+        
+        .markdown-content h1, .markdown-content h2, .markdown-content h3 {
+            margin: 20px 0 10px 0;
+            color: #2c3e50;
+        }
+        
+        .markdown-content p {
+            margin: 10px 0;
+        }
+        
+        .markdown-content code {
+            background: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+        }
+        
+        .markdown-content pre {
+            background: #f8f8f8;
+            padding: 15px;
+            border-radius: 8px;
+            overflow-x: auto;
+            margin: 15px 0;
+        }
+        
+        .markdown-content ul, .markdown-content ol {
+            margin: 10px 0;
+            padding-left: 30px;
+        }
+        
+        .markdown-content li {
+            margin: 5px 0;
+        }
+        
+        .status {
+            text-align: center;
+            margin: 20px 0;
+            font-size: 18px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1><i class="fa fa-magic"></i> 实时流式渲染演示</h1>
+        
+        <div class="control-panel">
+            <button onclick="startDemo1()">演示1: 简单文本</button>
+            <button onclick="startDemo2()">演示2: Markdown格式</button>
+            <button onclick="startDemo3()">演示3: 代码示例</button>
+            <button onclick="stopDemo()">停止演示</button>
+            
+            <div class="speed-control">
+                <label>速度:</label>
+                <input type="range" id="speedSlider" min="10" max="100" value="30">
+                <span id="speedValue">30ms</span>
+            </div>
+        </div>
+        
+        <div class="demo-section">
+            <div class="demo-title">
+                <i class="fa fa-play-circle"></i>
+                <span>实时渲染效果</span>
+            </div>
+            <div id="demoContent" class="demo-content markdown-content">
+                点击上方按钮开始演示实时流式渲染效果...
+            </div>
+        </div>
+        
+        <div class="status" id="status">
+            准备就绪
+        </div>
+    </div>
+    
+    <script>
+        let renderQueue = new Map();
+        let currentDemo = null;
+        
+        // 更新速度显示
+        document.getElementById('speedSlider').addEventListener('input', function() {
+            document.getElementById('speedValue').textContent = this.value + 'ms';
+        });
+        
+        // Markdown渲染函数
+        function renderMarkdown(text) {
+            if (typeof marked === 'undefined') {
+                return text.replace(/\n/g, '<br>');
+            }
+            return marked.parse(text);
+        }
+        
+        // 平滑渲染文本函数
+        function smoothRenderText(targetText, currentText = '', speed = 30) {
+            const contentElement = document.getElementById('demoContent');
+            if (!contentElement) return;
+            
+            // 如果目标文本没有变化，直接返回
+            if (targetText === currentText) {
+                contentElement.innerHTML = renderMarkdown(targetText);
+                document.getElementById('status').textContent = '渲染完成';
+                return;
+            }
+            
+            // 清除之前的渲染队列
+            if (renderQueue.has('demo')) {
+                clearTimeout(renderQueue.get('demo'));
+            }
+            
+            // 计算需要添加的字符
+            const nextLength = Math.min(currentText.length + Math.ceil(Math.random() * 3) + 1, targetText.length);
+            const newText = targetText.substring(0, nextLength);
+            
+            // 渲染当前文本
+            const renderedContent = renderMarkdown(newText);
+            contentElement.innerHTML = renderedContent + '<span class="typing-cursor">|</span>';
+            
+            // 更新状态
+            const progress = Math.round((newText.length / targetText.length) * 100);
+            document.getElementById('status').textContent = `渲染中... ${progress}%`;
+            
+            // 如果还有更多内容需要渲染
+            if (newText.length < targetText.length) {
+                const currentSpeed = parseInt(document.getElementById('speedSlider').value);
+                const timeoutId = setTimeout(() => {
+                    smoothRenderText(targetText, newText, currentSpeed);
+                }, currentSpeed + Math.random() * 20);
+                
+                renderQueue.set('demo', timeoutId);
+            } else {
+                // 渲染完成，移除光标
+                contentElement.innerHTML = renderMarkdown(targetText);
+                renderQueue.delete('demo');
+                document.getElementById('status').textContent = '渲染完成';
+            }
+        }
+        
+        // 停止演示
+        function stopDemo() {
+            if (renderQueue.has('demo')) {
+                clearTimeout(renderQueue.get('demo'));
+                renderQueue.delete('demo');
+            }
+            document.getElementById('status').textContent = '演示已停止';
+        }
+        
+        // 演示1: 简单文本
+        function startDemo1() {
+            stopDemo();
+            const text = `欢迎使用实时流式渲染功能！\n\n这是一个演示如何实现平滑、自然的文本输出效果的示例。通过模拟真实的打字过程，我们可以让AI的回复看起来更加生动和有趣。\n\n主要特点包括：\n- 字符级别的渐进式渲染\n- 随机的打字速度变化\n- 平滑的光标闪烁动画\n- 支持Markdown格式渲染\n\n这种效果特别适合用于聊天机器人、在线客服系统和教育应用中，能够显著提升用户体验。`;
+            
+            document.getElementById('status').textContent = '开始演示1...';
+            smoothRenderText(text);
+        }
+        
+        // 演示2: Markdown格式
+        function startDemo2() {
+            stopDemo();
+            const text = `# Markdown 渲染演示\n\n## 功能特点\n\n### 1. 标题支持\n支持多级标题的实时渲染\n\n### 2. 文本格式\n- **粗体文本**\n- *斜体文本*\n- \`行内代码\`\n\n### 3. 列表支持\n1. 有序列表项1\n2. 有序列表项2\n3. 有序列表项3\n\n无序列表：\n- 项目A\n- 项目B\n- 项目C\n\n### 4. 代码块\n\n\`\`\`javascript\nfunction hello() {\n    console.log('Hello, World!');\n}\n\`\`\`\n\n> 这是一个引用块，用于突出显示重要信息。\n\n---\n\n**总结**: 实时Markdown渲染让内容呈现更加丰富和专业！`;
+            
+            document.getElementById('status').textContent = '开始演示2...';
+            smoothRenderText(text);
+        }
+        
+        // 演示3: 代码示例
+        function startDemo3() {
+            stopDemo();
+            const text = `# JavaScript 实时渲染实现\n\n## 核心函数\n\n\`\`\`javascript\n// 平滑渲染文本函数\nfunction smoothRenderText(targetText, currentText = '', speed = 30) {\n    const contentElement = document.getElementById('content');\n    \n    // 计算需要添加的字符\n    const nextLength = Math.min(\n        currentText.length + Math.ceil(Math.random() * 3) + 1, \n        targetText.length\n    );\n    const newText = targetText.substring(0, nextLength);\n    \n    // 渲染当前文本\n    const renderedContent = renderMarkdown(newText);\n    contentElement.innerHTML = renderedContent + '<span class="cursor">|</span>';\n    \n    // 继续渲染剩余内容\n    if (newText.length < targetText.length) {\n        setTimeout(() => {\n            smoothRenderText(targetText, newText, speed);\n        }, speed + Math.random() * 20);\n    }\n}\n\`\`\`\n\n## 关键特性\n\n1. **随机速度**: 通过 \`Math.random()\` 模拟真实打字\n2. **批量字符**: 一次渲染1-4个字符，提高效率\n3. **Markdown支持**: 实时解析和渲染Markdown格式\n4. **光标动画**: CSS动画实现闪烁光标效果\n\n## 使用场景\n\n- 🤖 AI聊天机器人\n- 📚 在线教育平台\n- 💬 实时客服系统\n- 📝 文档编辑器\n\n> 💡 **提示**: 调整上方的速度滑块可以改变渲染速度！`;
+            
+            document.getElementById('status').textContent = '开始演示3...';
+            smoothRenderText(text);
+        }
+    </script>
+</body>
+</html>
